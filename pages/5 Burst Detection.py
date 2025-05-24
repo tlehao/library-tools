@@ -62,7 +62,7 @@ def upload(extype):
     if 'Publication Year' in df.columns:
                df.rename(columns={'Publication Year': 'Year', 'Citing Works Count': 'Cited by',
                                      'Publication Type': 'Document Type', 'Source Title': 'Source title'}, inplace=True)
-    if "dimensions" in uploaded_file.name.lower():
+    if "About the data" in df.columns[0]:
         df = sf.dim(df)
         col_dict = {'MeSH terms': 'Keywords',
         'PubYear': 'Year',
@@ -87,20 +87,27 @@ def get_minmax(df):
 
 @st.cache_data(ttl=3600)
 def conv_txt(extype):
-    if("pmc" in uploaded_file.name.lower() or "pubmed" in uploaded_file.name.lower()):
-        file = uploaded_file
-        papers = sf.medline(file)
-    else:
-        col_dict = {'TI': 'Title',
-                'SO': 'Source title',
-                'DE': 'Author Keywords',
-                'DT': 'Document Type',
-                'AB': 'Abstract',
-                'TC': 'Cited by',
-                'PY': 'Year',
-                'ID': 'Keywords Plus'}
-        papers = pd.read_csv(uploaded_file, sep='\t', lineterminator='\r')
-        papers.rename(columns=col_dict, inplace=True)
+    #the buffer for the file gets dpleted anytime it is read so reset buffer with .seek
+
+    if("PMID" in (uploaded_file.read()).decode()):
+        uploaded_file.seek(0)
+        papers = sf.medline(uploaded_file)
+        print(papers)
+        return papers
+    col_dict = {'TI': 'Title',
+            'SO': 'Source title',
+            'DE': 'Author Keywords',
+            'DT': 'Document Type',
+            'AB': 'Abstract',
+            'TC': 'Cited by',
+            'PY': 'Year',
+            'ID': 'Keywords Plus',
+            'rights_date_used': 'Year'}
+    uploaded_file.seek(0)
+    papers = pd.read_csv(uploaded_file, sep='\t')
+    if("htid" in papers.columns):
+        papers = sf.htrc(papers)
+    papers.rename(columns=col_dict, inplace=True)
     print(papers)
     return papers
 
@@ -336,15 +343,13 @@ def linegraph(bursts, freq_data):
             line_shape='linear',
             hoverinfo='text',
             hovertext=[f"Year: {index}<br>Frequency: {freq}" for index, freq in zip(freq_data.index, freq_data[column])],
-            text=freq_data[column],
+            #text=freq_data[column],
             textposition='top center'
         ), row=row, col=col)
-                
         # Add area charts
         for _, row_data in bursts[bursts['label'] == column].iterrows():
             x_values = freq_data.index[row_data['begin']:row_data['end']+1]
             y_values = freq_data[column][row_data['begin']:row_data['end']+1]
-                        
             #middle_y = sum(y_values) / len(y_values)
             y_post = min(freq_data[column]) + 1 if running_total == "Running total" else sum(y_values) / len(y_values)
             x_offset = 0.1
@@ -373,7 +378,19 @@ def linegraph(bursts, freq_data):
                 textangle=270,
                 row=row, col=col
                 )
-                
+            
+            # Add labels for values only in bursts
+            fig.add_trace(go.Scatter(
+            x=x_values, y=y_values, mode='lines+markers+text', name=column,
+            line_shape='linear',
+            hoverinfo='text',
+            hovertext=[f"Year: {index}<br>Frequency: {freq}" for index, freq in zip(freq_data.index, freq_data[column])],
+            text=y_values,
+            textposition='top center'
+        ), row=row, col=col)
+            print(freq_data[column])
+
+
         col += 1
         if col > 2:
             col = 1
@@ -414,7 +431,7 @@ if uploaded_file is not None:
         col_name = d1.selectbox("Select column to analyze",
             (coldf), on_change=reset_all)
         excluded_words_input = d2.text_input("Words to exclude (comma-separated)", on_change=reset_all)
-
+        
         if (GAP != 0):
             YEAR = st.slider('Year', min_value=MIN, max_value=MAX, value=(MIN, MAX), on_change=reset_all)
         else:
@@ -476,6 +493,7 @@ if uploaded_file is not None:
             st.text("Download results/images buttons located below visualizations")
             
 
-    except:
+    except Exception as e:
+        st.write(e)
         st.error("Please ensure that your file is correct. Please contact us if you find that this is an error.", icon="🚨")
         st.stop()

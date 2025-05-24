@@ -21,6 +21,9 @@ import time
 import json
 from tools import sourceformat as sf
 
+import networkx as nx
+import matplotlib.pyplot as plt
+
 #===config===
 st.set_page_config(
     page_title="Coconut",
@@ -66,7 +69,7 @@ def get_ext(extype):
 def upload(extype):
     papers = pd.read_csv(uploaded_file)
 
-    if "dimensions" in uploaded_file.name.lower():
+    if "About the data" in papers.columns[0]:
         papers = sf.dim(papers)
         col_dict = {'MeSH terms': 'Keywords',
         'PubYear': 'Year',
@@ -74,34 +77,34 @@ def upload(extype):
         'Publication Type': 'Document Type'
         }
         papers.rename(columns=col_dict, inplace=True)
+    
+    return papers
 
     return papers
 
 @st.cache_data(ttl=3600)
 def conv_txt(extype):
-    if("pmc" in uploaded_file.name.lower() or "pubmed" in uploaded_file.name.lower()):
-        file = uploaded_file
-        papers = sf.medline(file)
+    #the buffer for the file gets dpleted anytime it is read so reset buffer with .seek
 
-    elif("hathi" in uploaded_file.name.lower()):
-        papers = pd.read_csv(uploaded_file,sep = '\t')
+    if("PMID" in (uploaded_file.read()).decode()):
+        uploaded_file.seek(0)
+        papers = sf.medline(uploaded_file)
+        print(papers)
+        return papers
+    col_dict = {'TI': 'Title',
+            'SO': 'Source title',
+            'DE': 'Author Keywords',
+            'DT': 'Document Type',
+            'AB': 'Abstract',
+            'TC': 'Cited by',
+            'PY': 'Year',
+            'ID': 'Keywords Plus',
+            'rights_date_used': 'Year'}
+    uploaded_file.seek(0)
+    papers = pd.read_csv(uploaded_file, sep='\t')
+    if("htid" in papers.columns):
         papers = sf.htrc(papers)
-        col_dict={'title': 'title',
-        'rights_date_used': 'Year',
-        }
-        papers.rename(columns=col_dict, inplace=True)
-        
-    else:
-        col_dict = {'TI': 'Title',
-                'SO': 'Source title',
-                'DE': 'Author Keywords',
-                'DT': 'Document Type',
-                'AB': 'Abstract',
-                'TC': 'Cited by',
-                'PY': 'Year',
-                'ID': 'Keywords Plus'}
-        papers = pd.read_csv(uploaded_file, sep='\t', lineterminator='\r')
-        papers.rename(columns=col_dict, inplace=True)
+    papers.rename(columns=col_dict, inplace=True)
     print(papers)
     return papers
 
@@ -278,7 +281,23 @@ if uploaded_file is not None:
                             return res_node, res
                          
                          res_node, res = map_node(extype)
-    
+
+                    @st.cache_data(ttl=3600)
+                    def arul_net(extype):
+                        nodes = []
+                        edges = []
+                    
+
+
+                        for x in res_node['node']:
+                            nodes.append(x)
+                        for y,z in zip(res['antecedents'],res['consequents']):
+                            edge = (y,z)
+                            edges.append(edge)
+
+                        return nodes, edges
+
+                    _='''
                          @st.cache_data(ttl=3600)
                          def arul_network(extype):
                             nodes = []
@@ -318,9 +337,26 @@ if uploaded_file is not None:
                          return_value = agraph(nodes=nodes, 
                                                edges=edges, 
                                                config=config)
+                    
                          time.sleep(1)
                          st.toast('Process completed', icon='📈')
-                        
+                '''
+                    nodes, edges =  arul_net(res)
+
+                    G = nx.Graph()
+
+                    G.add_nodes_from(nodes)
+
+                    G.add_edges_from(edges)
+
+                    fig,ax = plt.subplots()
+
+                    nx.generate_network_text(G)
+
+                    nx.draw_random(G,with_labels = True, font_size = 4, node_size = 90, width = 0.25)
+
+                    st.pyplot(fig)
+
         with tab2:
              st.markdown('**Santosa, F. A. (2023). Adding Perspective to the Bibliometric Mapping Using Bidirected Graph. Open Information Science, 7(1), 20220152.** https://doi.org/10.1515/opis-2022-0152')
              
@@ -337,6 +373,7 @@ if uploaded_file is not None:
             st.text("Hover cursor over table, and click download arrow")
             st.image("images/tablenetwork.png")
             
-    except:
+    except Exception as e:
+        st.write(e)
         st.error("Please ensure that your file is correct. Please contact us if you find that this is an error.", icon="🚨")
         st.stop()
