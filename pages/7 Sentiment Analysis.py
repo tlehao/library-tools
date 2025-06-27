@@ -91,8 +91,6 @@ def upload(file):
 
 @st.cache_data(ttl=3600)
 def conv_txt(extype):
-    #the buffer for the file gets dpleted anytime it is read so reset buffer with .seek
-
     if("PMID" in (uploaded_file.read()).decode()):
         uploaded_file.seek(0)
         papers = sf.medline(uploaded_file)

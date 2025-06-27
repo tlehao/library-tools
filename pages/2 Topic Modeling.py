@@ -23,6 +23,7 @@ from io import StringIO
 from ipywidgets.embed import embed_minimal_html
 from nltk.stem.snowball import SnowballStemmer
 from bertopic import BERTopic
+from bertopic.representation import KeyBERTInspired, MaximalMarginalRelevance, OpenAI
 import plotly.express as px
 from sklearn.cluster import KMeans
 import bitermplus as btm
@@ -38,6 +39,7 @@ import os
 import time
 import json
 from tools import sourceformat as sf
+import openai
 
 #===config===
 st.set_page_config(
@@ -118,8 +120,6 @@ def upload(file):
 
 @st.cache_data(ttl=3600)
 def conv_txt(extype):
-    #the buffer for the file gets dpleted anytime it is read so reset buffer with .seek
-
     if("PMID" in (uploaded_file.read()).decode()):
         uploaded_file.seek(0)
         papers = sf.medline(uploaded_file)
@@ -197,7 +197,14 @@ if uploaded_file is not None:
         words_to_remove = c2.text_input("Remove specific words. Separate words by semicolons (;)")
         rem_copyright = c1.toggle('Remove copyright statement', value=True, on_change=reset_all)
         rem_punc = c2.toggle('Remove punctuation', value=True, on_change=reset_all)
-         
+        #fine tuning option for BERTopic
+        if method == 'BERTopic':
+            fine_tuning = st.toggle("Use Fine-tuning")
+            if fine_tuning:
+                topic_labelling = st.toggle("Automatic topic labelling")
+                if topic_labelling:
+                    api_key = st.text_input("OpenAI API Key")
+
         #===clean csv===
         @st.cache_data(ttl=3600, show_spinner=False)
         def clean_csv(extype):
@@ -464,8 +471,31 @@ if uploaded_file is not None:
                 elif bert_embedding_model == 'paraphrase-multilingual-MiniLM-L12-v2':
                     emb_mod = 'paraphrase-multilingual-MiniLM-L12-v2'
                     lang = 'multilingual'
-                topic_model = BERTopic(embedding_model=emb_mod, hdbscan_model=cluster_model, language=lang, umap_model=umap_model, top_n_words=bert_top_n_words)
+                
+                representation_model = ""
+                if fine_tuning:
+                    keybert = KeyBERTInspired()
+                    mmr = MaximalMarginalRelevance(diversity=0.3) #temporary, will make option to change diversity
+                    representation_model = {
+                        "KeyBERT": keybert,
+                        "MMR": mmr,
+                    }
+                    if topic_labelling:
+                        client = openai.OpenAI(api_key=api_key)
+                        clientAI = OpenAI(client)
+                        representation_model = {
+                            "KeyBERT": keybert,
+                            "MMR": mmr,
+                            "OpenAI": clientAI
+                        }
+
+                topic_model = BERTopic(embedding_model=emb_mod, hdbscan_model=cluster_model, language=lang, umap_model=umap_model, top_n_words=bert_top_n_words, representation_model = representation_model)
                 topics, probs = topic_model.fit_transform(topic_abs)
+
+                if(fine_tuning and topic_labelling):
+                    generated_labels = [label[0][0].split("\n")[0] for label in topic_model.get_topics(full=True)["OpenAI"].values()]
+                    topic_model.set_topic_labels(generated_labels)
+
                 return topic_model, topics, probs
             
             @st.cache_data(ttl=3600, show_spinner=False)

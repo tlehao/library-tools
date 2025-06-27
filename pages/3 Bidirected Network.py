@@ -23,6 +23,10 @@ from tools import sourceformat as sf
 
 import networkx as nx
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+
+import altair as alt
+import altair_nx as anx
 
 #===config===
 st.set_page_config(
@@ -84,8 +88,6 @@ def upload(extype):
 
 @st.cache_data(ttl=3600)
 def conv_txt(extype):
-    #the buffer for the file gets dpleted anytime it is read so reset buffer with .seek
-
     if("PMID" in (uploaded_file.read()).decode()):
         uploaded_file.seek(0)
         papers = sf.medline(uploaded_file)
@@ -161,11 +163,15 @@ if uploaded_file is not None:
             method = st.selectbox(
                  'Choose method',
                ('Lemmatization', 'Stemming'), on_change=reset_all)
+            layout = st.selectbox(
+            'Choose graph layout',
+            ['Circular','Kamada Kawai','Random','Spring','Shell']
+        ) 
         with col2:
             keyword = st.selectbox(
                 'Choose column',
                (list_of_column_key), on_change=reset_all)
-    
+
     
         #===body=== 
         @st.cache_data(ttl=3600)
@@ -286,9 +292,7 @@ if uploaded_file is not None:
                     def arul_net(extype):
                         nodes = []
                         edges = []
-                    
-
-
+                
                         for x in res_node['node']:
                             nodes.append(x)
                         for y,z in zip(res['antecedents'],res['consequents']):
@@ -297,65 +301,35 @@ if uploaded_file is not None:
 
                         return nodes, edges
 
-                    _='''
-                         @st.cache_data(ttl=3600)
-                         def arul_network(extype):
-                            nodes = []
-                            edges = []
-    
-                            for w,x in zip(res_node['size'], res_node['node']):
-                                nodes.append( Node(id=x, 
-                                                label=x,
-                                                size=50*w+10,
-                                                shape="dot",
-                                                labelHighlightBold=True,
-                                                group=x,
-                                                opacity=10,
-                                                mass=1)
-                                        )   
-    
-                            for y,z,a,b in zip(res['antecedents'],res['consequents'],res['confidence'],res['to']):
-                                edges.append( Edge(source=y, 
-                                                target=z,
-                                                title=b,
-                                                width=a*2,
-                                                physics=True,
-                                                smooth=True
-                                                ) 
-                                        )  
-                            return nodes, edges
-    
-                         nodes, edges = arul_network(extype)
-                         config = Config(width=1200,
-                                         height=800,
-                                         directed=True, 
-                                         physics=True, 
-                                         hierarchical=False,
-                                         maxVelocity=5
-                                         )
-    
-                         return_value = agraph(nodes=nodes, 
-                                               edges=edges, 
-                                               config=config)
-                    
-                         time.sleep(1)
-                         st.toast('Process completed', icon='📈')
-                '''
                     nodes, edges =  arul_net(res)
+                    
 
-                    G = nx.Graph()
+                    #Make graph with NetworkX
 
-                    G.add_nodes_from(nodes)
+                    G=nx.DiGraph()
 
                     G.add_edges_from(edges)
 
-                    fig,ax = plt.subplots()
-
-                    nx.generate_network_text(G)
-
-                    nx.draw_random(G,with_labels = True, font_size = 4, node_size = 90, width = 0.25)
-
-                    st.pyplot(fig)
+                    #Graph layout    
+                    if(layout=="Spring"):
+                        pos=nx.spring_layout(G)
+                    elif(layout == "Kamada Kawai"):
+                        pos=nx.kamada_kawai_layout(G)                    
+                    elif(layout == "Circular"):
+                        pos = nx.circular_layout(G)
+                    elif(layout=="Random"):
+                        pos = nx.random_layout(G)
+                    elif(layout=="Shell"):
+                        pos=nx.shell_layout(G)
+                  
+                    graph = anx.draw_networkx(G,pos, node_label = 'node',
+                     curved_edges = True,
+                      node_font_size=12,
+                      chart_width=1920,
+                      chart_height=1080).interactive()
+                
+                    st.altair_chart(graph)
+                
 
         with tab2:
              st.markdown('**Santosa, F. A. (2023). Adding Perspective to the Bibliometric Mapping Using Bidirected Graph. Open Information Science, 7(1), 20220152.** https://doi.org/10.1515/opis-2022-0152')
