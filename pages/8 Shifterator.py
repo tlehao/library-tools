@@ -1,6 +1,7 @@
 import streamlit as st
 import streamlit.components.v1 as components
-import scattertext as stx
+import shifterator as sh
+from shifterator import ProportionShift
 import pandas as pd
 import re
 import nltk
@@ -12,6 +13,8 @@ import time
 import sys
 import json
 from tools import sourceformat as sf
+from collections import Counter
+import io
 
 #===config===
 st.set_page_config(
@@ -42,7 +45,7 @@ with st.popover("🔗 Menu"):
     st.page_link("pages/7 Sentiment Analysis.py", label="Sentiment Analysis", icon="7️⃣")
     st.page_link("pages/8 Shifterator.py", label="Shifterator", icon="8️⃣")
     
-st.header("Scattertext", anchor=False)
+st.header("Shifterator", anchor=False)
 st.subheader('Put your file here...', anchor=False)
 
 def reset_all():
@@ -62,7 +65,7 @@ def upload(extype):
                papers.rename(columns={'Publication Year': 'Year', 'Citing Works Count': 'Cited by',
                                      'Publication Type': 'Document Type', 'Source Title': 'Source title'}, inplace=True)
     
-    elif "About the data" in papers.columns[0]:
+    if "dimensions" in uploaded_file.name.lower():
         papers = sf.dim(papers)
         col_dict = {'MeSH terms': 'Keywords',
         'PubYear': 'Year',
@@ -75,25 +78,29 @@ def upload(extype):
 
 @st.cache_data(ttl=3600)
 def conv_txt(extype):
-    if("PMID" in (uploaded_file.read()).decode()):
-        uploaded_file.seek(0)
-        papers = sf.medline(uploaded_file)
-        print(papers)
-        return papers
-    col_dict = {'TI': 'Title',
-            'SO': 'Source title',
-            'DE': 'Author Keywords',
-            'DT': 'Document Type',
-            'AB': 'Abstract',
-            'TC': 'Cited by',
-            'PY': 'Year',
-            'ID': 'Keywords Plus',
-            'rights_date_used': 'Year'}
-    uploaded_file.seek(0)
-    papers = pd.read_csv(uploaded_file, sep='\t')
-    if("htid" in papers.columns):
+    if("pmc" in uploaded_file.name.lower() or "pubmed" in uploaded_file.name.lower()):
+        file = uploaded_file
+        papers = sf.medline(file)
+
+    elif("hathi" in uploaded_file.name.lower()):
+        papers = pd.read_csv(uploaded_file,sep = '\t')
         papers = sf.htrc(papers)
-    papers.rename(columns=col_dict, inplace=True)
+        col_dict={'title': 'title',
+        'rights_date_used': 'Year',
+        }
+        papers.rename(columns=col_dict, inplace=True)
+        
+    else:
+        col_dict = {'TI': 'Title',
+                'SO': 'Source title',
+                'DE': 'Author Keywords',
+                'DT': 'Document Type',
+                'AB': 'Abstract',
+                'TC': 'Cited by',
+                'PY': 'Year',
+                'ID': 'Keywords Plus'}
+        papers = pd.read_csv(uploaded_file, sep='\t', lineterminator='\r')
+        papers.rename(columns=col_dict, inplace=True)
     print(papers)
     return papers
 
@@ -204,47 +211,70 @@ def get_minmax(extype):
     return MIN, MAX, GAP, MID
 
 @st.cache_data(ttl=3600)
-def running_scattertext(cat_col, catname, noncatname):
+def running_shifterator(dict1, dict2):
     try:
-        corpus = stx.CorpusFromPandas(filtered_df,         
-                                category_col = cat_col,
-                                text_col = ColCho,
-                                nlp = stx.whitespace_nlp_with_sentences,
-                                ).build().get_unigram_corpus().remove_infrequent_words(minimum_term_count = min_term)        
-                                
-        #table results
-        disp = stx.Dispersion(corpus)
-        disp_df = disp.get_df()
-
-        disp_csv = disp_df.to_csv(index=False).encode('utf-8')
+        if method_shifts == 'Proportion Shifts':
+            proportion_shift = sh.ProportionShift(type2freq_1=dict1, type2freq_2=dict2)
+            ax = proportion_shift.get_shift_graph(system_names = ['Topic 1', 'Topic 2'], title='Proportion Shifts')     
             
-        try:
-            html = stx.produce_scattertext_explorer(corpus,
-                                                category = catname,
-                                                category_name = catname,
-                                                not_category_name = noncatname,
-                                                width_in_pixels = 900,
-                                                minimum_term_frequency = 0,
-                                                metadata = filtered_df['Title'],
-                                                save_svg_button=True)
-    
-        except KeyError:
-            html = stx.produce_scattertext_explorer(corpus,
-                                                category = catname,
-                                                category_name = catname,
-                                                not_category_name = noncatname,
-                                                width_in_pixels = 900,
-                                                minimum_term_frequency = 0,
-                                                save_svg_button=True)
+        elif method_shifts == 'Shannon Entropy Shifts':
+            entropy_shift = sh.EntropyShift(type2freq_1=dict1,
+                                type2freq_2=dict2,
+                                base=2)
+            ax = entropy_shift.get_shift_graph(system_names = ['Topic 1', 'Topic 2'], title='Shannon Entropy Shifts')     
+            
+        elif method_shifts == 'Tsallis Entropy Shifts':
+            entropy_shift = sh.EntropyShift(type2freq_1=dict1,
+                                type2freq_2=dict2,
+                                base=2,
+                                alpha=0.8)
+            ax = entropy_shift.get_shift_graph(system_names = ['Topic 1', 'Topic 2'], title='Tsallis Entropy Shifts')     
+            
+        elif method_shifts == 'Kullback-Leibler Divergence Shifts':
+            kld_shift = sh.KLDivergenceShift(type2freq_1=dict1,
+                                 type2freq_2=dict2,
+                                 base=2)
+            ax = kld_shift.get_shift_graph(system_names = ['Topic 1', 'Topic 2'], title='Kullback-Leibler Divergence Shifts')     
+            
+        elif method_shifts == 'Jensen-Shannon Divergence Shifts':
+            jsd_shift = sh.JSDivergenceShift(type2freq_1=dict1,
+                                 type2freq_2=dict2,
+                                 weight_1=0.5,
+                                 weight_2=0.5,
+                                 base=2,
+                                 alpha=1)
+            ax = jsd_shift.get_shift_graph(system_names = ['Topic 1', 'Topic 2'], title='Jensen-Shannon Divergence Shifts')     
 
-        return disp_csv, html 
+        fig = ax.get_figure()
+        
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", bbox_inches='tight')
+        buf.seek(0)
+        
+        return fig, buf
 
     except ValueError:
-        st.warning('Please decrease the Minimum term count in the advanced settings.', icon="⚠️")
+        st.warning('Please check your data.', icon="⚠️")
         sys.exit()
 
 @st.cache_data(ttl=3600)
-def df_w2w(search_terms1, search_terms2):
+def df2dict(df_1, df_2):
+    text1 = ' '.join(df_1.dropna().astype(str))
+    text2 = ' '.join(df_2.dropna().astype(str))
+                
+    text1_clean = re.sub(r'\d+', '', text1)
+    text2_clean = re.sub(r'\d+', '', text2)
+                
+    tokens1 = re.findall(r'\b\w+\b', text1_clean.lower())
+    tokens2 = re.findall(r'\b\w+\b', text2_clean.lower())
+                
+    type2freq_1 = {k: int(v) for k, v in Counter(tokens1).items()}
+    type2freq_2 = {k: int(v) for k, v in Counter(tokens2).items()}
+
+    return type2freq_1, type2freq_2
+
+@st.cache_data(ttl=3600)
+def dict_w2w(search_terms1, search_terms2):
     selected_col = [ColCho]
     dfs1 = pd.DataFrame()
     for term in search_terms1:
@@ -257,31 +287,36 @@ def df_w2w(search_terms1, search_terms2):
         dfs2 = pd.concat([dfs2, paper[paper[selected_col[0]].str.contains(r'\b' + term + r'\b', case=False, na=False)]], ignore_index=True)
     dfs2['Topic'] = 'Second Term'
     dfs2 = dfs2.drop_duplicates()
-    filtered_df = pd.concat([dfs1, dfs2], ignore_index=True)
     
-    return dfs1, dfs2, filtered_df
+    type2freq_1, type2freq_2 = df2dict(dfs1[selected_col[0]], dfs2[selected_col[0]])
+    
+    return type2freq_1, type2freq_2
 
 @st.cache_data(ttl=3600)
-def df_sources(stitle1, stitle2):
+def dict_sources(stitle1, stitle2):
+    selected_col = [ColCho]
     dfs1 = paper[paper['Source title'].str.contains(stitle1, case=False, na=False)]
     dfs1['Topic'] = stitle1
     dfs2 = paper[paper['Source title'].str.contains(stitle2, case=False, na=False)]
     dfs2['Topic'] = stitle2
-    filtered_df = pd.concat([dfs1, dfs2], ignore_index=True)
 
-    return filtered_df  
+    type2freq_1, type2freq_2 = df2dict(dfs1[selected_col[0]], dfs2[selected_col[0]])
+    
+    return type2freq_1, type2freq_2
 
 @st.cache_data(ttl=3600)
-def df_years(first_range, second_range):
-    first_range_filter_df = paper[(paper['Year'] >= first_range[0]) & (paper['Year'] <= first_range[1])].copy()
-    first_range_filter_df['Topic Range'] = 'First range'
+def dict_years(first_range, second_range):
+    selected_col = [ColCho]
+    first_filter_df = paper[(paper['Year'] >= first_range[0]) & (paper['Year'] <= first_range[1])].copy()
+    first_filter_df['Topic Range'] = 'First range'
         
-    second_range_filter_df = paper[(paper['Year'] >= second_range[0]) & (paper['Year'] <= second_range[1])].copy()
-    second_range_filter_df['Topic Range'] = 'Second range'
-        
-    filtered_df = pd.concat([first_range_filter_df, second_range_filter_df], ignore_index=True)
+    second_filter_df = paper[(paper['Year'] >= second_range[0]) & (paper['Year'] <= second_range[1])].copy()
+    second_filter_df['Topic Range'] = 'Second range'
 
-    return filtered_df 
+    type2freq_1, type2freq_2 = df2dict(first_filter_df[selected_col[0]], second_filter_df[selected_col[0]])
+    
+    return type2freq_1, type2freq_2
+    
 
 #===Read data===
 uploaded_file = st.file_uploader('', type=['csv', 'txt', 'json', 'tar.gz','xml'], on_change=reset_all)
@@ -315,14 +350,16 @@ if uploaded_file is not None:
                 (comparison), on_change=reset_all)
         
         with st.expander("🧮 Show advance settings"):
-            y1, y2 = st.columns([8,2])
+            y1, y2, y3 = st.columns([4,0.1,4])
             t1, t2 = st.columns([3,3])
             words_to_remove = y1.text_input('Input your text', on_change=reset_all, placeholder='Remove specific words. Separate words by semicolons (;)')
-            min_term = y2.number_input("Minimum term count", min_value=0, max_value=10, value=3, step=1, on_change=reset_all)
+            method_shifts = y3.selectbox("Choose preferred method",('Proportion Shifts','Shannon Entropy Shifts', 'Tsallis Entropy Shifts','Kullback-Leibler Divergence Shifts', 
+                                                                   'Jensen-Shannon Divergence Shifts'), on_change=reset_all)
             rem_copyright = t1.toggle('Remove copyright statement', value=True, on_change=reset_all)
             rem_punc = t2.toggle('Remove punctuation', value=False, on_change=reset_all)
     
-        st.info('Scattertext is an expensive process when dealing with a large volume of text with our existing resources. Please kindly wait until the visualization appears.', icon="ℹ️")
+        if method_shifts == 'Kullback-Leibler Divergence Shifts':
+            st.info('The Kullback-Leibler Divergence is only well-defined if every single word in the comparison text is also in the reference text.', icon="ℹ️")
         
         paper = clean_csv(extype)
     
@@ -338,17 +375,18 @@ if uploaded_file is not None:
                 text2 = col3.text_input('Second Term', on_change=reset_all, placeholder='put comma if you have more than one')
                 search_terms2 = [term.strip() for term in text2.split(",") if term.strip()]
                 
-                dfs1, dfs2, filtered_df = df_w2w(search_terms1, search_terms2)
+                type2freq_1, type2freq_2 = dict_w2w(search_terms1, search_terms2)
         
-                if dfs1.empty and dfs2.empty:
+                if not type2freq_1 and not type2freq_2:
                     st.warning('We cannot find anything in your document.', icon="⚠️")
-                elif dfs1.empty:
+                elif not type2freq_1:
                     st.warning(f'We cannot find {text1} in your document.', icon="⚠️")
-                elif dfs2.empty:
+                elif not type2freq_2:
                     st.warning(f'We cannot find {text2} in your document.', icon="⚠️")
                 else:
                     with st.spinner('Processing. Please wait until the visualization comes up'):
-                        disp_df, html = running_scattertext('Topic', 'First Term', 'Second Term')
+                        fig, buf = running_shifterator(type2freq_1, type2freq_2)
+                        st.pyplot(fig)
         
             elif compare == 'Manual label':
                 col1, col2, col3 = st.columns(3)
@@ -374,8 +412,14 @@ if uploaded_file is not None:
         
                 filtered_df = paper[paper[column_selected].isin([label1, label2])].reset_index(drop=True)
                 
+                dfs1 = filtered_df[filtered_df[column_selected] == label1].reset_index(drop=True)
+                dfs2 = filtered_df[filtered_df[column_selected] == label2].reset_index(drop=True)
+
+                type2freq_1, type2freq_2 = df2dict(dfs1[ColCho], dfs2[ColCho])
+                
                 with st.spinner('Processing. Please wait until the visualization comes up'):
-                    disp_df, html = running_scattertext(column_selected, label1, label2)
+                    fig, buf = running_shifterator(type2freq_1, type2freq_2)
+                    st.pyplot(fig)
         
             elif compare == 'Sources':
                 col1, col2, col3 = st.columns([4,0.1,4])
@@ -393,10 +437,11 @@ if uploaded_file is not None:
                     'Choose second label',
                     (list_stitle), on_change=reset_all, index=default_index)
         
-                filtered_df = df_sources(stitle1, stitle2)
+                type2freq_1, type2freq_2 = dict_sources(stitle1, stitle2)
         
                 with st.spinner('Processing. Please wait until the visualization comes up'):
-                    disp_df, html = running_scattertext('Source title', stitle1, stitle2)
+                    fig, buf = running_shifterator(type2freq_1, type2freq_2)
+                    st.pyplot(fig)
         
             elif compare == 'Years':
                 col1, col2, col3 = st.columns([4,0.1,4])
@@ -407,47 +452,73 @@ if uploaded_file is not None:
                     col2.write('')
                     second_range = col3.slider('Second Range', min_value=MIN, max_value=MAX, value=(MID, MAX), on_change=reset_all)
                 
-                    filtered_df = df_years(first_range, second_range)
+                    type2freq_1, type2freq_2 = dict_years(first_range, second_range)
         
                     with st.spinner('Processing. Please wait until the visualization comes up'):
-                        disp_df, html = running_scattertext('Topic Range', 'First range', 'Second range')
-                        
+                        fig, buf = running_shifterator(type2freq_1, type2freq_2)
+                        st.pyplot(fig)
+
                 else:
                     st.write('You only have data in ', (MAX))
 
-            if html:
-                st.toast('Process completed', icon='🎉')
-                time.sleep(1)
-                st.toast('Visualizing', icon='⏳')
-                components.html(html, height = 1200, scrolling = True)
-    
-                st.download_button(
-                    "📥 Click to download result",
-                    disp_df,
-                    "scattertext_dataframe.csv",
-                    "text/csv",
-                    on_click="ignore")
+            d1, d2 = st.columns(2)
+                
+            d1.download_button(
+                label="📥 Download Graph",
+                data=buf,
+                file_name="shifterator.png",
+                mime="image/png"
+            )
+
+            @st.cache_data(ttl=3600)
+            def shifts_dfs(type2freq_1, type2freq_2):
+                proportion_shift = ProportionShift(type2freq_1=type2freq_1, type2freq_2=type2freq_2)
+                
+                words = list(proportion_shift.types)
+                shift_scores = proportion_shift.get_shift_scores()
+                freq1 = proportion_shift.type2freq_1
+                freq2 = proportion_shift.type2freq_2
+
+                data = []
+                for word, score in shift_scores.items():
+                    data.append({
+                        'word': word,
+                        'freq_text1': proportion_shift.type2freq_1.get(word, 0),
+                        'freq_text2': proportion_shift.type2freq_2.get(word, 0),
+                        'shift_score': score
+                    })
+                
+                df_shift = pd.DataFrame(data)
+                df_shift = df_shift.sort_values('shift_score')
+                
+                return df_shift.to_csv(index=False).encode('utf-8')
+
+            csv = shifts_dfs(type2freq_1, type2freq_2)
+
+            d2.download_button(
+                "📥 Click to download result",
+                csv,
+                "shiftertor_dataframe.csv",
+                "text/csv")
     
         with tab2:
-            st.markdown('**Jason Kessler. 2017. Scattertext: a Browser-Based Tool for Visualizing how Corpora Differ. In Proceedings of ACL 2017, System Demonstrations, pages 85–90, Vancouver, Canada. Association for Computational Linguistics.** https://doi.org/10.48550/arXiv.1703.00565')
+            st.markdown('**Gallagher, R.J., Frank, M.R., Mitchell, L. et al. (2021). Generalized Word Shift Graphs: A Method for Visualizing and Explaining Pairwise Comparisons Between Texts. EPJ Data Science, 10(4).** https://doi.org/10.1140/epjds/s13688-021-00260-3')
     
         with tab3:
             st.markdown('**Sánchez-Franco, M. J., & Rey-Tienda, S. (2023). The role of user-generated content in tourism decision-making: an exemplary study of Andalusia, Spain. Management Decision, 62(7).** https://doi.org/10.1108/md-06-2023-0966')
-            st.markdown('**Marrone, M., & Linnenluecke, M.K. (2020). Interdisciplinary Research Maps: A new technique for visualizing research topics. PLoS ONE, 15.** https://doi.org/10.1371/journal.pone.0242283')
-            st.markdown('**Moreno, A., & Iglesias, C.A. (2021). Understanding Customers’ Transport Services with Topic Clustering and Sentiment Analysis. Applied Sciences.** https://doi.org/10.3390/app112110169')
-            st.markdown('**Santosa, F. A. (2025). Artificial Intelligence in Library Studies: A Textual Analysis. JLIS.It, 16(1).** https://doi.org/10.36253/jlis.it-626')
+            st.markdown('**Ipek Baris Schlicht, Fernandez, E., Chulvi, B., & Rosso, P. (2023). Automatic detection of health misinformation: a systematic review. Journal of Ambient Intelligence and Humanized Computing, 15.** https://doi.org/10.1007/s12652-023-04619-4')
+            st.markdown('**Torricelli, M., Falkenberg, M., Galeazzi, A., Zollo, F., Quattrociocchi, W., & Baronchelli, A. (2023). Hurricanes Increase Climate Change Conversations on Twitter. PLOS Climate, 2(11)** https://doi.org/10.1371/journal.pclm.0000277')
 
         with tab4:
-            st.subheader(':blue[Image]', anchor=False)
-            st.write("Click the :blue[Download SVG] on the right side.")  
-            st.divider()
-            st.subheader(':blue[Scattertext Dataframe]', anchor=False)
-            st.button('📥 Click to download result')
-            st.text("Click the Download button to get the CSV result.")
+            st.subheader(':blue[Result]', anchor=False)
+            st.button('📥 Download Graph')
+            st.text("Click Download Graph button.")  
 
-    except NameError:
-        pass
-    
+            st.divider()
+            st.subheader(':blue[Shifterator Dataframe]', anchor=False)
+            st.button('📥 Click to download result')
+            st.text("Click the Download button to get the CSV result.") 
+
     except Exception as e:
         st.error("Please ensure that your file is correct. Please contact us if you find that this is an error.", icon="🚨")
         st.stop()

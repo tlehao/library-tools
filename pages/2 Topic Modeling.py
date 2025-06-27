@@ -4,17 +4,19 @@ import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
 import re
+import string
 import nltk
 nltk.download('wordnet')
 from nltk.stem import WordNetLemmatizer
 nltk.download('stopwords')
 from nltk.corpus import stopwords
-#from scipy import triu
 import gensim
 import gensim.corpora as corpora
 from gensim.corpora import Dictionary
 from gensim.models.coherencemodel import CoherenceModel
 from gensim.models.ldamodel import LdaModel
+from gensim.models import Phrases
+from gensim.models.phrases import Phraser
 from pprint import pprint
 import pickle
 import pyLDAvis
@@ -26,6 +28,7 @@ from bertopic import BERTopic
 from bertopic.representation import KeyBERTInspired, MaximalMarginalRelevance, OpenAI
 import plotly.express as px
 from sklearn.cluster import KMeans
+from sklearn.feature_extraction.text import CountVectorizer
 import bitermplus as btm
 import tmplot as tmp
 import tomotopy
@@ -39,6 +42,8 @@ import os
 import time
 import json
 from tools import sourceformat as sf
+import datamapplot
+from sentence_transformers import SentenceTransformer
 import openai
 
 #===config===
@@ -186,24 +191,51 @@ if uploaded_file is not None:
 
         coldf = sorted(papers.select_dtypes(include=['object']).columns.tolist())
             
-        c1, c2 = st.columns([3,4])
+        c1, c2, c3 = st.columns([3,3,4])
         method = c1.selectbox(
                 'Choose method',
-                ('Choose...', 'pyLDA', 'Biterm', 'BERTopic'), on_change=reset_all)
-        num_cho = c1.number_input('Choose number of topics', min_value=2, max_value=30, value=5)
-        ColCho = c2.selectbox(
-                'Choose column',
-                (coldf), on_change=reset_all)
-        words_to_remove = c2.text_input("Remove specific words. Separate words by semicolons (;)")
-        rem_copyright = c1.toggle('Remove copyright statement', value=True, on_change=reset_all)
-        rem_punc = c2.toggle('Remove punctuation', value=True, on_change=reset_all)
-        #fine tuning option for BERTopic
-        if method == 'BERTopic':
-            fine_tuning = st.toggle("Use Fine-tuning")
-            if fine_tuning:
-                topic_labelling = st.toggle("Automatic topic labelling")
-                if topic_labelling:
-                    api_key = st.text_input("OpenAI API Key")
+                ('Choose...', 'pyLDA', 'Biterm', 'BERTopic'))
+        ColCho = c2.selectbox('Choose column', (coldf))
+        num_cho = c3.number_input('Choose number of topics', min_value=2, max_value=30, value=5)
+
+        d1, d2 = st.columns([3,7])
+        xgram = d1.selectbox("N-grams", ("1", "2", "3"))
+        xgram = int(xgram)
+        words_to_remove = d2.text_input("Remove specific words. Separate words by semicolons (;)")
+    
+        rem_copyright = d1.toggle('Remove copyright statement', value=True)
+        rem_punc = d2.toggle('Remove punctuation', value=True)
+
+        #===advance settings===
+        with st.expander("🧮 Show advance settings"): 
+            t1, t2, t3 = st.columns([3,3,4])
+            if method == 'pyLDA':
+                py_random_state = t1.number_input('Random state', min_value=0, max_value=None, step=1)
+                py_chunksize = t2.number_input('Chunk size', value=100 , min_value=10, max_value=None, step=1)
+                opt_threshold = t3.number_input('Threshold', value=100 , min_value=1, max_value=None, step=1)
+                
+            elif method == 'Biterm':
+                btm_seed = t1.number_input('Random state seed', value=100 , min_value=1, max_value=None, step=1)
+                btm_iterations = t2.number_input('Iterations number', value=20 , min_value=2, max_value=None, step=1)
+                opt_threshold = t3.number_input('Threshold', value=100 , min_value=1, max_value=None, step=1)
+                
+            elif method == 'BERTopic':
+                u1, u2 = st.columns([5,5])
+                
+                bert_top_n_words = u1.number_input('top_n_words', value=5 , min_value=5, max_value=25, step=1)
+                bert_random_state = u2.number_input('random_state', value=42 , min_value=1, max_value=None, step=1)
+                bert_n_components = u1.number_input('n_components', value=5 , min_value=1, max_value=None, step=1)
+                bert_n_neighbors = u2.number_input('n_neighbors', value=15 , min_value=1, max_value=None, step=1)
+                bert_embedding_model = st.radio(
+                    "embedding_model", 
+                    ["all-MiniLM-L6-v2", "paraphrase-multilingual-MiniLM-L12-v2", "en_core_web_sm"], index=0, horizontal=True)
+                fine_tuning = st.toggle("Use Fine-tuning")
+                if fine_tuning:
+                    topic_labelling = st.toggle("Automatic topic labelling")
+                    if topic_labelling:
+                        api_key = st.text_input("OpenAI API Key")
+            else:
+                st.write('Please choose your preferred method')
 
         #===clean csv===
         @st.cache_data(ttl=3600, show_spinner=False)
@@ -213,10 +245,12 @@ if uploaded_file is not None:
             #===mapping===
             paper['Abstract_pre'] = paper[ColCho].map(lambda x: x.lower())
             if rem_punc:
-                 paper['Abstract_pre'] = paper['Abstract_pre'].map(lambda x: re.sub('[,:;\.!-?•=]', ' ', x))
-                 paper['Abstract_pre'] = paper['Abstract_pre'].str.replace('\u201c|\u201d', '', regex=True) 
+                paper['Abstract_pre'] = paper['Abstract_pre'].map(
+                    lambda x: re.sub(f"[{re.escape(string.punctuation)}]", " ", x)
+                ).map(lambda x: re.sub(r"\s+", " ", x).strip())
+                paper['Abstract_pre'] = paper['Abstract_pre'].str.replace('[\u2018\u2019\u201c\u201d]', '', regex=True)
             if rem_copyright:  
-                 paper['Abstract_pre'] = paper['Abstract_pre'].map(lambda x: re.sub('©.*', '', x))
+                paper['Abstract_pre'] = paper['Abstract_pre'].map(lambda x: re.sub('©.*', '', x))
             
             #===stopword removal===
             stop = stopwords.words('english')
@@ -245,32 +279,10 @@ if uploaded_file is not None:
             topic_abs = paper.Abstract_lem.values.tolist()
             return topic_abs, paper
     
-        d1, d2 = st.columns([7,3]) 
-        d2.info("Don't do anything during the computing", icon="⚠️")
         topic_abs, paper=clean_csv(extype) 
-    
-        #===advance settings===
-        with d1.expander("🧮 Show advance settings"): 
-             t1, t2 = st.columns([5,5])
-             if method == 'pyLDA':
-                  py_random_state = t1.number_input('Random state', min_value=0, max_value=None, step=1)
-                  py_chunksize = t2.number_input('Chunk size', value=100 , min_value=10, max_value=None, step=1)
-             elif method == 'Biterm':
-                  btm_seed = t1.number_input('Random state seed', value=100 , min_value=1, max_value=None, step=1)
-                  btm_iterations = t2.number_input('Iterations number', value=20 , min_value=2, max_value=None, step=1)
-             elif method == 'BERTopic':
-                  bert_top_n_words = t1.number_input('top_n_words', value=5 , min_value=5, max_value=25, step=1)
-                  bert_random_state = t1.number_input('random_state', value=42 , min_value=1, max_value=None, step=1)
-                  bert_n_components = t2.number_input('n_components', value=5 , min_value=1, max_value=None, step=1)
-                  bert_n_neighbors = t2.number_input('n_neighbors', value=15 , min_value=1, max_value=None, step=1)
-                  bert_embedding_model = st.radio(
-                       "embedding_model", 
-                       ["all-MiniLM-L6-v2", "paraphrase-multilingual-MiniLM-L12-v2", "en_core_web_sm"], index=0, horizontal=True)
-             else:
-                  st.write('Please choose your preferred method')
                  
         if st.button("Submit", on_click=reset_all):
-             num_topic = num_cho  
+            num_topic = num_cho  
     
         if method == 'BERTopic':
             st.info('BERTopic is an expensive process when dealing with a large volume of text with our existing resources. Please kindly wait until the visualization appears.', icon="ℹ️")
@@ -287,6 +299,14 @@ if uploaded_file is not None:
                 @st.cache_data(ttl=3600, show_spinner=False)
                 def pylda(extype):
                     topic_abs_LDA = [t.split(' ') for t in topic_abs]
+
+                    bigram = Phrases(topic_abs_LDA, min_count=xgram, threshold=opt_threshold)
+                    trigram = Phrases(bigram[topic_abs_LDA], threshold=opt_threshold)
+                    bigram_mod = Phraser(bigram)
+                    trigram_mod = Phraser(trigram)
+                    
+                    topic_abs_LDA = [trigram_mod[bigram_mod[doc]] for doc in topic_abs_LDA]
+
                     id2word = Dictionary(topic_abs_LDA)
                     corpus = [id2word.doc2bow(text) for text in topic_abs_LDA]
                     #===LDA===
@@ -350,9 +370,10 @@ if uploaded_file is not None:
                             label = "Download Results",
                             data=resultcsv,
                             file_name="results.csv",
-                            mime="text\csv")
+                            mime="text\csv",
+                            on_click="ignore")
 
-                    except NameError:
+                    except NameError as f:
                         st.warning('🖱️ Please click Submit')
     
             with tab2:
@@ -379,13 +400,27 @@ if uploaded_file is not None:
             #===optimize Biterm===
             @st.cache_data(ttl=3600, show_spinner=False)
             def biterm_topic(extype):
-                X, vocabulary, vocab_dict = btm.get_words_freqs(topic_abs)
+                tokenized_abs = [t.split(' ') for t in topic_abs]
+
+                bigram = Phrases(tokenized_abs, min_count=xgram, threshold=opt_threshold)
+                trigram = Phrases(bigram[tokenized_abs], threshold=opt_threshold)
+                bigram_mod = Phraser(bigram)
+                trigram_mod = Phraser(trigram)
+            
+                topic_abs_ngram = [trigram_mod[bigram_mod[doc]] for doc in tokenized_abs]
+            
+                topic_abs_str = [' '.join(doc) for doc in topic_abs_ngram]
+
+                
+                X, vocabulary, vocab_dict = btm.get_words_freqs(topic_abs_str)
                 tf = np.array(X.sum(axis=0)).ravel()
                 docs_vec = btm.get_vectorized_docs(topic_abs, vocabulary)
                 docs_lens = list(map(len, docs_vec))
                 biterms = btm.get_biterms(docs_vec)
+                
                 model = btm.BTM(X, vocabulary, seed=btm_seed, T=num_topic, M=20, alpha=50/8, beta=0.01)
                 model.fit(biterms, iterations=btm_iterations)
+                
                 p_zd = model.transform(docs_vec)
                 coherence = model.coherence_
                 phi = tmp.get_phi(model)
@@ -393,6 +428,7 @@ if uploaded_file is not None:
                 totaltop = topics_coords.label.values.tolist()
                 perplexity = model.perplexity_
                 top_topics = model.df_words_topics_
+                
                 return topics_coords, phi, totaltop, perplexity, top_topics
     
             tab1, tab2, tab3, tab4 = st.tabs(["📈 Generate visualization", "📃 Reference", "📓 Recommended Reading", "⬇️ Download Help"])
@@ -427,15 +463,12 @@ if uploaded_file is not None:
     
                         #===download results===#
                         resultcsv = top_topics.to_csv().encode("utf-8")
-                        st.download_button(
-                        label = "Download Results",
-                        data=resultcsv,
-                        file_name="results.csv",
-                         mime="text\csv")
+                        st.download_button(label = "Download Results", data=resultcsv, file_name="results.csv", mime="text\csv", on_click="ignore")
 
-                except ValueError:
+                except ValueError as g:
                     st.error('🙇‍♂️ Please raise the number of topics and click submit')
-                except NameError:
+                    
+                except NameError as f:
                     st.warning('🖱️ Please click Submit')
     
             with tab2: 
@@ -463,15 +496,20 @@ if uploaded_file is not None:
                     min_dist=0.0, metric='cosine', random_state=bert_random_state)   
                 cluster_model = KMeans(n_clusters=num_topic)
                 if bert_embedding_model == 'all-MiniLM-L6-v2':
-                    emb_mod = 'all-MiniLM-L6-v2'
+                    model = SentenceTransformer('all-MiniLM-L6-v2')
                     lang = 'en'
+                    embeddings = model.encode(topic_abs, show_progress_bar=True)
+                    
                 elif bert_embedding_model == 'en_core_web_sm':
-                    emb_mod = en_core_web_sm.load(exclude=['tagger', 'parser', 'ner', 'attribute_ruler', 'lemmatizer'])
+                    nlp = en_core_web_sm.load(exclude=['tagger', 'parser', 'ner', 'attribute_ruler', 'lemmatizer'])
                     lang = 'en'
+                    embeddings = np.array([nlp(text).vector for text in topic_abs])
+                    
                 elif bert_embedding_model == 'paraphrase-multilingual-MiniLM-L12-v2':
-                    emb_mod = 'paraphrase-multilingual-MiniLM-L12-v2'
+                    model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
                     lang = 'multilingual'
-                
+                    embeddings = model.encode(topic_abs, show_progress_bar=True)
+
                 representation_model = ""
                 if fine_tuning:
                     keybert = KeyBERTInspired()
@@ -489,14 +527,15 @@ if uploaded_file is not None:
                             "OpenAI": clientAI
                         }
 
-                topic_model = BERTopic(embedding_model=emb_mod, hdbscan_model=cluster_model, language=lang, umap_model=umap_model, top_n_words=bert_top_n_words, representation_model = representation_model)
-                topics, probs = topic_model.fit_transform(topic_abs)
-
+                vectorizer_model = CountVectorizer(ngram_range=(1, xgram), stop_words='english')
+                topic_model = BERTopic(embedding_model=None, hdbscan_model=cluster_model, language=lang, umap_model=umap_model, vectorizer_model=vectorizer_model, top_n_words=bert_top_n_words,representation_model = representation_model)
+                topics, probs = topic_model.fit_transform(topic_abs, embeddings=embeddings)
+                
                 if(fine_tuning and topic_labelling):
                     generated_labels = [label[0][0].split("\n")[0] for label in topic_model.get_topics(full=True)["OpenAI"].values()]
                     topic_model.set_topic_labels(generated_labels)
-
-                return topic_model, topics, probs
+                
+                return topic_model, topics, probs, embeddings
             
             @st.cache_data(ttl=3600, show_spinner=False)
             def Vis_Topics(extype):
@@ -505,7 +544,7 @@ if uploaded_file is not None:
             
             @st.cache_data(ttl=3600, show_spinner=False)
             def Vis_Documents(extype):
-                fig2 = topic_model.visualize_documents(topic_abs)
+                fig2 = topic_model.visualize_document_datamap(topic_abs, embeddings=embeddings)
                 return fig2
     
             @st.cache_data(ttl=3600, show_spinner=False)
@@ -529,7 +568,7 @@ if uploaded_file is not None:
                 try:
                     with st.spinner('Performing computations. Please wait ...'):
                    
-                        topic_model, topics, probs = bertopic_vis(extype)
+                        topic_model, topics, probs, embeddings = bertopic_vis(extype)
                         time.sleep(.5)
                         st.toast('Visualize Topics', icon='🏃')
                         fig1 = Vis_Topics(extype)
@@ -550,16 +589,19 @@ if uploaded_file is not None:
                         st.toast('Visualize Terms', icon='🏃')
                         fig5 = Vis_Barchart(extype)
                        
-                        with st.expander("Visualize Topics"):
-                            st.write(fig1)
-                        with st.expander("Visualize Terms"):
-                            st.write(fig5)
-                        with st.expander("Visualize Documents"):
-                            st.write(fig2)
-                        with st.expander("Visualize Document Hierarchy"):  
-                            st.write(fig3)
-                        with st.expander("Visualize Topic Similarity"):
-                            st.write(fig4)
+                        bertab1, bertab2, bertab3, bertab4, bertab5 = st.tabs(["Visualize Topics", "Visualize Terms", "Visualize Documents",
+                                                                              "Visualize Document Hierarchy", "Visualize Topic Similarity"])
+                        
+                        with bertab1:
+                            st.plotly_chart(fig1, use_container_width=True)
+                        with bertab2:
+                            st.plotly_chart(fig5, use_container_width=True)
+                        with bertab3:
+                            st.plotly_chart(fig2, use_container_width=True)
+                        with bertab4:  
+                            st.plotly_chart(fig3, use_container_width=True)
+                        with bertab5:
+                            st.plotly_chart(fig4, use_container_width=True)
                       
                         #===download results===#
                         results = topic_model.get_topic_info()
@@ -573,10 +615,10 @@ if uploaded_file is not None:
                             on_click="ignore",
                         )
 
-                except ValueError:
+                except ValueError as e:
                     st.error('🙇‍♂️ Please raise the number of topics and click submit')
               
-                except NameError:
+                except NameError as e:
                     st.warning('🖱️ Please click Submit')
     
             with tab2:
@@ -596,6 +638,6 @@ if uploaded_file is not None:
                 st.button("Download Results")
                 st.text("Click Download results button at bottom of page")
 
-    except:
+    except Exception as e:
         st.error("Please ensure that your file is correct. Please contact us if you find that this is an error.", icon="🚨")
         st.stop()
