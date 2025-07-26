@@ -37,3 +37,4 @@ vaderSentiment
 git+https://github.com/faizhalas/shifterator
 datamapplot==0.4.2
 altair_nx
+rouge_score

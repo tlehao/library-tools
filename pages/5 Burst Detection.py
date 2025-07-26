@@ -454,7 +454,7 @@ if uploaded_file is not None:
         c1, c2, c3 = st.columns([3,3,4])
         top_n = c1.number_input("Number of top words to analyze", min_value=5, value=10, step=1, on_change=reset_all)
         viz_selected = c2.selectbox("Option for visualization",
-            ("Line graph", "Scatter plot"), on_change=reset_all)
+            ("Line graph", "Heatmap"), on_change=reset_all)
         running_total = c3.selectbox("Calculation method",
             ("Running total", "By occurrences each year"), on_change=reset_all)
         count_method = c1.selectbox("Count by",

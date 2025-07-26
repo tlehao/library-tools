@@ -25,7 +25,7 @@ from io import StringIO
 from ipywidgets.embed import embed_minimal_html
 from nltk.stem.snowball import SnowballStemmer
 from bertopic import BERTopic
-from bertopic.representation import KeyBERTInspired, MaximalMarginalRelevance, OpenAI
+from bertopic.representation import KeyBERTInspired, MaximalMarginalRelevance, OpenAI, TextGeneration
 import plotly.express as px
 from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import CountVectorizer
@@ -45,6 +45,7 @@ from tools import sourceformat as sf
 import datamapplot
 from sentence_transformers import SentenceTransformer
 import openai
+from transformers import pipeline
 
 #===config===
 st.set_page_config(
@@ -229,11 +230,15 @@ if uploaded_file is not None:
                 bert_embedding_model = st.radio(
                     "embedding_model", 
                     ["all-MiniLM-L6-v2", "paraphrase-multilingual-MiniLM-L12-v2", "en_core_web_sm"], index=0, horizontal=True)
+                
                 fine_tuning = st.toggle("Use Fine-tuning")
                 if fine_tuning:
                     topic_labelling = st.toggle("Automatic topic labelling")
                     if topic_labelling:
-                        api_key = st.text_input("OpenAI API Key")
+                        llm_provider = st.selectbox("Provider",["OpenAI","HuggingFace"])
+                        if llm_provider == "OpenAI":
+                            api_key = st.text_input("API Key")
+                
             else:
                 st.write('Please choose your preferred method')
 
@@ -490,7 +495,8 @@ if uploaded_file is not None:
 
          #===BERTopic===
         elif method == 'BERTopic':
-            @st.cache_data(ttl=3600, show_spinner=False)
+            @st.cache_resource(ttl = 3600, show_spinner=False)
+            #@st.cache_data(ttl=3600, show_spinner=False)
             def bertopic_vis(extype):
                 umap_model = UMAP(n_neighbors=bert_n_neighbors, n_components=bert_n_components, 
                     min_dist=0.0, metric='cosine', random_state=bert_random_state)   
@@ -502,6 +508,7 @@ if uploaded_file is not None:
                     
                 elif bert_embedding_model == 'en_core_web_sm':
                     nlp = en_core_web_sm.load(exclude=['tagger', 'parser', 'ner', 'attribute_ruler', 'lemmatizer'])
+                    model = nlp
                     lang = 'en'
                     embeddings = np.array([nlp(text).vector for text in topic_abs])
                     
@@ -511,56 +518,61 @@ if uploaded_file is not None:
                     embeddings = model.encode(topic_abs, show_progress_bar=True)
 
                 representation_model = ""
+
                 if fine_tuning:
                     keybert = KeyBERTInspired()
-                    mmr = MaximalMarginalRelevance(diversity=0.3) #temporary, will make option to change diversity
+                    mmr = MaximalMarginalRelevance(diversity=0.3)
                     representation_model = {
                         "KeyBERT": keybert,
                         "MMR": mmr,
                     }
                     if topic_labelling:
-                        client = openai.OpenAI(api_key=api_key)
-                        clientAI = OpenAI(client)
-                        representation_model = {
-                            "KeyBERT": keybert,
-                            "MMR": mmr,
-                            "OpenAI": clientAI
-                        }
+                        if llm_provider == "OpenAI":
+                            client = openai.OpenAI(api_key=api_key)
+                            representation_model = {
+                                "KeyBERT": keybert,
+                                "MMR": mmr,
+                                "test": OpenAI(client, model = "gpt-4o-mini", delay_in_seconds=10)
+                            }
+                        elif llm_provider == "HuggingFace":
+                            gennie = pipeline("text2text-generation", model = "google/flan-t5-base")
+                            clientmod = TextGeneration(gennie)
+                            representation_model = {
+                                "KeyBERT": keybert,
+                                "MMR": mmr,
+                                "test": clientmod
+                            }
 
                 vectorizer_model = CountVectorizer(ngram_range=(1, xgram), stop_words='english')
-                topic_model = BERTopic(embedding_model=None, hdbscan_model=cluster_model, language=lang, umap_model=umap_model, vectorizer_model=vectorizer_model, top_n_words=bert_top_n_words,representation_model = representation_model)
+                topic_model = BERTopic(representation_model = representation_model, embedding_model=model, hdbscan_model=cluster_model, language=lang, umap_model=umap_model, vectorizer_model=vectorizer_model, top_n_words=bert_top_n_words)
                 topics, probs = topic_model.fit_transform(topic_abs, embeddings=embeddings)
-                
+
                 if(fine_tuning and topic_labelling):
-                    generated_labels = [label[0][0].split("\n")[0] for label in topic_model.get_topics(full=True)["OpenAI"].values()]
+                    generated_labels = [label[0][0].split("\n")[0] for label in topic_model.get_topics(full=True)["test"].values()]
                     topic_model.set_topic_labels(generated_labels)
-                
+
                 return topic_model, topics, probs, embeddings
             
-            @st.cache_data(ttl=3600, show_spinner=False)
+            @st.cache_resource(ttl = 3600, show_spinner=False)
             def Vis_Topics(extype):
                 fig1 = topic_model.visualize_topics()
                 return fig1
-            
-            @st.cache_data(ttl=3600, show_spinner=False)
+            @st.cache_resource(ttl = 3600, show_spinner=False)
             def Vis_Documents(extype):
-                fig2 = topic_model.visualize_document_datamap(topic_abs, embeddings=embeddings)
+                fig2 = topic_model.visualize_document_datamap(topic_abs, embeddings=embeddings, custom_labels = True)
                 return fig2
-    
-            @st.cache_data(ttl=3600, show_spinner=False)
+            @st.cache_resource(ttl = 3600, show_spinner=False)
             def Vis_Hierarchy(extype):
-                fig3 = topic_model.visualize_hierarchy(top_n_topics=num_topic)
+                fig3 = topic_model.visualize_hierarchy(top_n_topics=num_topic, custom_labels = True)
                 return fig3
-        
-            @st.cache_data(ttl=3600, show_spinner=False)
+            @st.cache_resource(ttl = 3600, show_spinner=False)
             def Vis_Heatmap(extype):
                 global topic_model
-                fig4 = topic_model.visualize_heatmap(n_clusters=num_topic-1, width=1000, height=1000)
+                fig4 = topic_model.visualize_heatmap(n_clusters=num_topic-1, width=1000, height=1000, custom_labels = True)
                 return fig4
-    
-            @st.cache_data(ttl=3600, show_spinner=False)
+            @st.cache_resource(ttl = 3600, show_spinner=False)
             def Vis_Barchart(extype):
-                fig5 = topic_model.visualize_barchart(top_n_topics=num_topic)
+                fig5 = topic_model.visualize_barchart(top_n_topics=num_topic, custom_labels = True)
                 return fig5
            
             tab1, tab2, tab3, tab4 = st.tabs(["📈 Generate visualization", "📃 Reference", "📓 Recommended Reading", "⬇️ Download Help"])
@@ -616,10 +628,13 @@ if uploaded_file is not None:
                         )
 
                 except ValueError as e:
+                    st.write(e)
                     st.error('🙇‍♂️ Please raise the number of topics and click submit')
-              
+
+
                 except NameError as e:
                     st.warning('🖱️ Please click Submit')
+                    st.write(e)
     
             with tab2:
                 st.markdown('**Grootendorst, M. (2022). BERTopic: Neural topic modeling with a class-based TF-IDF procedure. arXiv preprint arXiv:2203.05794.** https://doi.org/10.48550/arXiv.2203.05794')
@@ -640,4 +655,5 @@ if uploaded_file is not None:
 
     except Exception as e:
         st.error("Please ensure that your file is correct. Please contact us if you find that this is an error.", icon="🚨")
+        st.write(e)
         st.stop()
