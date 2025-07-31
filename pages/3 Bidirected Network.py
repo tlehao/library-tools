@@ -55,6 +55,7 @@ with st.popover("🔗 Menu"):
     st.page_link("pages/5 Burst Detection.py", label="Burst Detection", icon="5️⃣")
     st.page_link("pages/6 Keywords Stem.py", label="Keywords Stem", icon="6️⃣")
     st.page_link("pages/7 Sentiment Analysis.py", label="Sentiment Analysis", icon="7️⃣")
+    st.page_link("pages/8 Shifterator.py", label="Shifterator", icon="8️⃣")
     
 st.header("Bidirected Network", anchor=False)
 st.subheader('Put your file here...', anchor=False)
@@ -287,28 +288,42 @@ if uploaded_file is not None:
                             return res_node, res
                          
                          res_node, res = map_node(extype)
-
+                    ___='''
                     @st.cache_data(ttl=3600)
                     def arul_net(extype):
                         nodes = []
                         edges = []
                 
-                        for x in res_node['node']:
+                        for w,x in zip(res_node['size'], res_node['node']):
                             nodes.append(x)
-                        for y,z in zip(res['antecedents'],res['consequents']):
+                        for y,z,a,b in zip(res['antecedents'],res['consequents'],res['confidence'],res['to']):
                             edge = (y,z)
+
                             edges.append(edge)
 
                         return nodes, edges
 
-                    nodes, edges =  arul_net(res)
-                    
+                    #nodes, edges =  arul_net(res)
+                    '''
+
+                    @st.cache_data(ttl=3600)
+                    def graphmaker(__netgraph):
+
+                        #add nodes, w is weight, x is node label
+                        for w,x in zip(res_node['size'], res_node['node']):
+                            __netgraph.add_node(x, size = w)
+                        #add edges, y is startpoint, z is endpoint, a is edge weight, b is title
+                        for y,z,a,b in zip(res['antecedents'],res['consequents'],res['confidence'],res['to']):
+                            __netgraph.add_edge(y,z, weight = int(a*100))
+
 
                     #Make graph with NetworkX
 
                     G=nx.DiGraph()
 
-                    G.add_edges_from(edges)
+                    graphmaker(G)
+
+                    #G.add_edges_from(edges) ##### remove this later
 
                     #Graph layout    
                     if(layout=="Spring"):
@@ -323,6 +338,8 @@ if uploaded_file is not None:
                         pos=nx.shell_layout(G)
                   
                     graph = anx.draw_networkx(G,pos, node_label = 'node',
+                     edge_width = 'weight',
+                     node_size = 'size',
                      curved_edges = True,
                       node_font_size=12,
                       chart_width=1920,

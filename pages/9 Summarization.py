@@ -3,6 +3,7 @@ import streamlit.components.v1 as components
 import nltk
 import spacy
 import pytextrank
+import pandas as pd
 from rouge_score import rouge_scorer
 from nltk.translate.bleu_score import sentence_bleu
 from transformers import pipeline, PegasusForConditionalGeneration, PegasusTokenizer, T5ForConditionalGeneration, T5Tokenizer
@@ -63,10 +64,16 @@ def reset_all():
 #===text reading===
 def read_txt(intext):
     return (intext.read()).decode()
+
+#===csv reading===
+def read_csv(uploaded_file):
+    fulltexts = pd.read_csv(uploaded_file)
+    fulltexts.rename(columns={fulltexts.columns[0]: "texts"}, inplace = True)
+    return fulltexts
     
 
 #===Read data===
-uploaded_file = st.file_uploader('', type=['txt'], on_change=reset_all)
+uploaded_file = st.file_uploader('', type=['txt','csv'], on_change=reset_all)
 
 
 if uploaded_file is not None:
@@ -75,7 +82,9 @@ if uploaded_file is not None:
 
         if extype.endswith(".txt"):
             fulltext = read_txt(uploaded_file)
-        
+        elif extype.endswith(".csv"):
+            texts = read_csv(uploaded_file)
+
         #Menu
         
         method = st.selectbox("Method",("Extractive","Abstractive"))
@@ -101,94 +110,186 @@ if uploaded_file is not None:
                 
             with tab1:
                 
+                def SpacyRank(text):
+                    nlp = spacy.load("en_core_web_lg")
+                    nlp.add_pipe("textrank")
+                    doc = nlp(text)
+                    summary = ""
+                    for sent in doc._.textrank.summary(limit_phrases = phrase_limit, limit_sentences = sentence_limit):
+                        summary+=str(sent) + '\n'
+                    return summary
+
+                def t5summ(text):
+                    model = T5ForConditionalGeneration.from_pretrained('t5-small')
+                    tokenizer = T5Tokenizer.from_pretrained('t5-small')
+                    
+                    input_text = "summarize: " + text
+                    input_ids = tokenizer.encode(input_text,return_tensors='pt')
+                    
+                    summed = model.generate(input_ids, max_length = max_length, min_length = min_length)
+
+                    summary = tokenizer.decode(summed[0],skip_special_tokens=True)     
+                    return summary       
+
+                def xsum(text):
+                    model_name = "google/pegasus-xsum"
+                    
+                    pegasus_tokenizer = PegasusTokenizer.from_pretrained(model_name)
+
+                    summarizer = pipeline("summarization", 
+                    model=model_name, 
+                    tokenizer=pegasus_tokenizer, 
+                    framework="pt")
+                    
+                    summed = summarizer(text, min_length = min_length, max_length = max_length)
+                    summary = summed[0]["summary_text"]   
+
+                    return summary                     
+
+                def falcsum(text):
+                    summarizer = pipeline("summarization",model = "Falconsai/text_summarization")
+                    summed = summarizer(text, max_length = max_length, min_length = min_length, do_sample = False)                    
+                    summary = summed[0]["summary_text"]
+                    return summary
+
+                def bulkScore(combined):
+                    
+                    scorelist = []
+
+                    for column in range(len(combined)):
+                        ref = combined[column][0]
+                        cand = combined[column][1]
+                    
+                        BLEuscore = nltk.translate.bleu_score.sentence_bleu([ref], cand)
+                        scorer = rouge_scorer.RougeScorer(['rouge1', 'rougeL'], use_stemmer=True)
+                        rougescores = scorer.score(ref, cand)
+
+                        Bscore = f"{BLEuscore:.2f}"
+                        Rscore = f"{rougescores['rouge1'].fmeasure:.2f}"
+
+                        scoreTuplet = Bscore, Rscore
+
+                        scorelist.append(scoreTuplet)
+
+                    return scorelist
+
+
                 with st.spinner('Performing computations. Please wait ...'):
                 
                     c1, c2 = st.columns([0.5,0.5], border=True)
-                    
-                    with c1:
-                        st.header("Original text")
-                        with st.container(border=True):
-                            st.write(fulltext)
+                
+                    if(extype.endswith(".txt")):
 
-                    if method == "Extractive":
-                        if(ex_method == "Spacy PyTextRank"):
-                            nlp = spacy.load("en_core_web_lg")
-                            nlp.add_pipe("textrank")
-                            doc = nlp(fulltext)
-                            summary = ""
-                            for sent in doc._.textrank.summary(limit_phrases = phrase_limit, limit_sentences = sentence_limit):
-                                summary+=str(sent) + '\n'
-                        elif(ex_method == "t5"):
-                            model = T5ForConditionalGeneration.from_pretrained('t5-small')
-                            tokenizer = T5Tokenizer.from_pretrained('t5-small')
+                        with c1:
+                            if(extype.endswith(".txt")):
+                                st.header("Original text")
+                                with st.container(border=True):
+                                    st.write(fulltext)
+
+                            if method == "Extractive":
+                                if(ex_method == "Spacy PyTextRank"):
+                                    summary = SpacyRank(fulltext)
+                                elif(ex_method == "t5"):
+                                    summary = t5summ(fulltext)
+
+                            elif method == "Abstractive":
+                                if ab_method == "Pegasus x-sum":
+                                    summary = xsum(fulltext)
+
+                                elif ab_method == "FalconsAI t5":
+                                    summary = t5summ(fulltext)
+                        with c2:
                             
-                            input_text = "summarize: " + fulltext
-                            input_ids = tokenizer.encode(input_text,return_tensors='pt')
-                            
-                            summed = model.generate(input_ids, max_length = max_length, min_length = min_length)
+                            st.header("Summarized")
+                            with st.container(border = True):
+                                st.write(summary)
+                            st.header("Performance scores")
+                            with st.container(border = True):
+                                
+                                #performance metrics
+                                reference = fulltext
+                                candidate = summary      
 
-                            summary = tokenizer.decode(summed[0],skip_special_tokens=True)
+                                BLEuscore = nltk.translate.bleu_score.sentence_bleu([reference], candidate)
 
-                    elif method == "Abstractive":
-                        if ab_method == "Pegasus x-sum":
-                            model_name = "google/pegasus-xsum"
-                            
-                            pegasus_tokenizer = PegasusTokenizer.from_pretrained(model_name)
-                            pegasus_model = PegasusForConditionalGeneration.from_pretrained(model_name)
-                            tokens = pegasus_tokenizer(fulltext,
-                            truncation = True, 
-                            padding = "longest", 
-                            return_tensors = "pt")
+                                scorer = rouge_scorer.RougeScorer(['rouge1', 'rougeL'], use_stemmer=True)
+                                rougescores = scorer.score(reference, candidate)
 
-                            encoded_summary = pegasus_model.generate(**tokens)
-                            decode = pegasus_tokenizer.decode(encoded_summary[0], skip_special_tokens=True)
+                                st.write(f"BLEU Score (NLTK): {BLEuscore:.2f}")
+                                st.write(f"ROUGE-1 F1 Score: {rougescores['rouge1'].fmeasure:.2f}")
 
-                            summarizer = pipeline("summarization", 
-                            model=model_name, 
-                            tokenizer=pegasus_tokenizer, 
-                            framework="pt")
-                            
-                            summed = summarizer(fulltext, min_length = min_length, max_length = max_length)
-                            summary = summed[0]["summary_text"]
+                                text_file = summary
+                                st.download_button(
+                                    label = "Download Results",
+                                    data=text_file,
+                                    file_name="Summary.txt",
+                                    mime="text\csv",
+                                    on_click="ignore",)
 
-                        elif ab_method == "FalconsAI t5":
-                            summarizer = pipeline("summarization",model = "Falconsai/text_summarization")
-                            summed = summarizer(fulltext, max_length = max_length, min_length = min_length, do_sample = False)                    
-                            summary = summed[0]["summary_text"]
-
-                    with c2:
-                        st.header("Summarized")
-                        with st.container(border = True):
-                            st.write(summary)
-                        st.header("Performance scores")
-                        with st.container(border = True):
-                            
-                            #performance metrics
-                            reference = fulltext
-                            candidate = summary      
-
-                            #reference_tokenized = [nltk.word_tokenize(ref) for ref in reference]
-                            #candidate_tokenized = [nltk.word_tokenize(cand) for cand in candidate]
-
-                            #bleu_results = sentence_bleu(reference, candidate)
-                            BLEuscore = nltk.translate.bleu_score.sentence_bleu([reference], candidate)
-
-                            scorer = rouge_scorer.RougeScorer(['rouge1', 'rougeL'], use_stemmer=True)
-                            rougescores = scorer.score(reference, candidate)
-
-                            st.write(f"BLEU Score (NLTK): {BLEuscore:.2f}")
-                            st.write(f"ROUGE-1 F1 Score: {rougescores['rouge1'].fmeasure:.2f}")
+                    elif(extype.endswith(".csv")):
+                        if method == "Extractive":
+                            if(ex_method == "Spacy PyTextRank"):
+                                summaries = texts['texts'].apply(SpacyRank)
+                                fullnsums = summaries.to_frame()
+                                fullnsums['full'] = texts['texts']
+                                fullnsums['combined'] = fullnsums.values.tolist()
 
 
-            
-                            text_file = summary
+                            elif(ex_method == "t5"):
+                                summaries = texts['texts'].apply(t5summ)
+                                fullnsums = summaries.to_frame()
+                                fullnsums['full'] = texts['texts']
+                                fullnsums['combined'] = fullnsums.values.tolist()
+                                
+
+                        elif method == "Abstractive":
+                            if ab_method == "Pegasus x-sum":
+                                summaries = texts['texts'].apply(xsum)
+                                fullnsums = summaries.to_frame()
+                                fullnsums['full'] = texts['texts']
+                                fullnsums['combined'] = fullnsums.values.tolist()
+
+                            elif ab_method == "FalconsAI t5":
+                                summaries = texts['texts'].apply(falcsum)
+                                fullnsums = summaries.to_frame()
+                                fullnsums['full'] = texts['texts']
+                                fullnsums['combined'] = fullnsums.values.tolist()
+
+                        with c1:
+                            st.header("Download bulk summarization results")
+
+                            result = summaries.to_csv()
                             st.download_button(
                                 label = "Download Results",
-                                data=text_file,
-                                file_name="Summary.txt",
+                                data = result,
+                                file_name = "Summaries.csv",
                                 mime="text\csv",
-                                on_click="ignore",)
-            
+                                on_click = "ignore"
+                            )
+
+                        with c2:
+                            st.header("Scores and summaries results")
+                            scores  = pd.DataFrame.from_records(bulkScore(fullnsums.combined.to_list()),columns = ["BLEU","Rouge"])
+                        
+                            summariesscores = fullnsums.join(scores)
+
+                            summariesscores.drop("combined", axis = 1, inplace = True)
+                            summariesscores.rename(columns = {"texts":"summarized"}, inplace = True)
+
+                            result2 = summariesscores.to_csv()
+
+                            st.download_button(
+                                label = "Download scores and results",
+                                data = result2,
+                                file_name = "ScoredSummaries.csv",
+                                mime = "test\csv",
+                                on_click = "ignore"
+                            )
+
+
+                            
+
+
             #do this
             with tab2:
                 st.write("")
@@ -196,8 +297,8 @@ if uploaded_file is not None:
             with tab3:
                 st.header("Summarization result (.txt)")
                 st.write("Click the download button (example) to get the text file result")
-                st.download_button(label = "Download Results")
+                st.button(label = "Download Results")
 
 
     except Exception as e:
-        st.error(e)
+        st.write(e)
