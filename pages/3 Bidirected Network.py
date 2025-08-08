@@ -311,10 +311,10 @@ if uploaded_file is not None:
 
                         #add nodes, w is weight, x is node label
                         for w,x in zip(res_node['size'], res_node['node']):
-                            __netgraph.add_node(x, size = w)
+                            __netgraph.add_node(x, size = (400 + 2000*w))
                         #add edges, y is startpoint, z is endpoint, a is edge weight, b is title
                         for y,z,a,b in zip(res['antecedents'],res['consequents'],res['confidence'],res['to']):
-                            __netgraph.add_edge(y,z, weight = int(a*100))
+                            __netgraph.add_edge(y,z, weight = int(a*10))
 
 
                     #Make graph with NetworkX
@@ -338,14 +338,18 @@ if uploaded_file is not None:
                         pos=nx.shell_layout(G)
                   
                     graph = anx.draw_networkx(G,pos, node_label = 'node',
-                     edge_width = 'weight',
-                     node_size = 'size',
-                     curved_edges = True,
-                      node_font_size=12,
-                      chart_width=1920,
-                      chart_height=1080).interactive()
+                    edge_width = 'weight',
+                    node_size = 'size',
+                    curved_edges = True,
+                    node_font_size=12,
+                    edge_alpha = 0.25,
+                    edge_colour = "grey",
+                    node_colour = "royalblue",                    
+                    chart_width=800,
+                    chart_height=600).interactive()
                 
-                    st.altair_chart(graph)
+                    with st.container(border = True):
+                        st.altair_chart(graph)
                 
 
         with tab2:
