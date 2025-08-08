@@ -27,46 +27,48 @@ mt1, mt2 = st.tabs(["Menu", "How to"])
 
 
 with mt1:   
-
-    st.header("Analysis",divider=True)
+    st.header("Text Pre-Processing",divider = True)
 
     col1,col2, col3, col4 = st.columns(4)
 
     with col1.container(border=True):
         st.markdown("![Stemming](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/lemma.png)")
         if st.button("Go to Keywords Stem"):
-            st.switch_page("pages/6 Keywords Stem.py")         
+            st.switch_page("pages/6 Keywords Stem.py") 
+   
+    st.header("Analysis",divider=True)
 
-    
-    with col2.container(border=True):
+    col21,col22, col23, col24 = st.columns(4)
+
+    with col21.container(border=True):
         st.markdown("![Burst](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/burst.png)")
         if st.button("Go to Burst Detection"):
             st.switch_page("pages/5 Burst Detection.py")
     
-    with col3.container(border=True):
+    with col22.container(border=True):
         st.markdown("![Topic modeling](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/topicmodeling.png)")
         if st.button("Go to Topic Modeling"):
             st.switch_page("pages/2 Topic Modeling.py")   
     
-    with col4.container(border=True):
+    with col23.container(border=True):
         st.markdown("![Sentiment](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/sentiment.png)")
         if st.button("Go to Sentiment Analysis"):
             st.switch_page("pages/7 Sentiment Analysis.py")
     
     st.header("Visualizations",divider=True)
 
-    col21, col22, col23 = st.columns(3)
-    with col21.container(border=True):
+    col31, col32, col33 = st.columns(3)
+    with col31.container(border=True):
         st.markdown("![Scattertext](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/scattertext.png)")
         if st.button("Go to Scattertext"):
             st.switch_page("pages/1 Scattertext.py")     
 
-    with col22.container(border=True):
+    with col32.container(border=True):
         st.markdown("![Sunburst](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/sunburst.png)")
         if st.button("Go to Sunburst Visualization"):
             st.switch_page("pages/4 Sunburst.py")
 
-    with col23.container(border=True):
+    with col33.container(border=True):
         st.markdown("![Bidirected network](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/bidirected.png)")
         if st.button("Go to Bidirected Network"):
             st.switch_page("pages/3 Bidirected Network.py")            

@@ -196,7 +196,7 @@ if uploaded_file is not None:
         method = c1.selectbox(
                 'Choose method',
                 ('Choose...', 'pyLDA', 'Biterm', 'BERTopic'))
-        ColCho = c2.selectbox('Choose column', (coldf))
+        ColCho = c2.selectbox('Choose column', (["Abstract","Title"]))
         num_cho = c3.number_input('Choose number of topics', min_value=2, max_value=30, value=5)
 
         d1, d2 = st.columns([3,7])
