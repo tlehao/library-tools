@@ -57,7 +57,7 @@ with mt1:
     
     st.header("Visualizations",divider=True)
 
-    col31, col32, col33 = st.columns(3)
+    col31, col32, col33, col34, col35 = st.columns(5)
     with col31.container(border=True):
         st.markdown("![Scattertext](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/scattertext.png)")
         if st.button("Go to Scattertext"):
@@ -71,7 +71,17 @@ with mt1:
     with col33.container(border=True):
         st.markdown("![Bidirected network](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/bidirected.png)")
         if st.button("Go to Bidirected Network"):
-            st.switch_page("pages/3 Bidirected Network.py")            
+            st.switch_page("pages/3 Bidirected Network.py")       
+
+    with col34.container(border=True):
+        st.markdown("![Shifterator](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/shifterator.png)")
+        if st.button("Go to Shifterator"):
+            st.switch_page("pages/8 Shifterator.py")
+
+    with col35.container(border=True):
+        st.markdown("![WordCloud]")
+        if(st.button("Go to WordCloud")):
+            st.switch_page("pages/10 WordCloud.py")
 
 with mt2:
     st.header("Before you start", anchor=False)

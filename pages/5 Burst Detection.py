@@ -47,6 +47,8 @@ with st.popover("🔗 Menu"):
     st.page_link("pages/6 Keywords Stem.py", label="Keywords Stem", icon="6️⃣")
     st.page_link("pages/7 Sentiment Analysis.py", label="Sentiment Analysis", icon="7️⃣")
     st.page_link("pages/8 Shifterator.py", label="Shifterator", icon="8️⃣")
+    st.page_link("pages/9 Summarization.py", label = "Summarization",icon ="9️⃣")
+    st.page_link("pages/10 WordCloud.py", label = "WordCloud", icon = "🔟")
 
 st.header("Burst Detection", anchor=False)
 st.subheader('Put your file here...', anchor=False)
@@ -544,6 +546,6 @@ if uploaded_file is not None:
             st.button('👉 Press to download the list of detected bursts', on_click=None)
             st.text("Click download button.")
             
-    except Exception as e:
+    except:
         st.error("Please ensure that your file or settings are correct. If you think there is a mistake, feel free to reach out to us!", icon="🚨")
         st.stop()

@@ -74,6 +74,9 @@ with st.popover("🔗 Menu"):
     st.page_link("pages/5 Burst Detection.py", label="Burst Detection", icon="5️⃣")
     st.page_link("pages/6 Keywords Stem.py", label="Keywords Stem", icon="6️⃣")
     st.page_link("pages/7 Sentiment Analysis.py", label="Sentiment Analysis", icon="7️⃣")
+    st.page_link("pages/8 Shifterator.py", label="Shifterator", icon="8️⃣")
+    st.page_link("pages/9 Summarization.py", label = "Summarization",icon ="9️⃣")
+    st.page_link("pages/10 WordCloud.py", label = "WordCloud", icon = "🔟")
 
 st.header("Topic Modeling", anchor=False)
 st.subheader('Put your file here...', anchor=False)
@@ -196,7 +199,7 @@ if uploaded_file is not None:
         method = c1.selectbox(
                 'Choose method',
                 ('Choose...', 'pyLDA', 'Biterm', 'BERTopic'))
-        ColCho = c2.selectbox('Choose column', (["Abstract","Title"]))
+        ColCho = c2.selectbox('Choose column', (["Abstract","Title", "Abstract + Title"]))
         num_cho = c3.number_input('Choose number of topics', min_value=2, max_value=30, value=5)
 
         d1, d2 = st.columns([3,7])
@@ -235,8 +238,8 @@ if uploaded_file is not None:
                 if fine_tuning:
                     topic_labelling = st.toggle("Automatic topic labelling")
                     if topic_labelling:
-                        llm_provider = st.selectbox("Provider",["OpenAI","HuggingFace"])
-                        if llm_provider == "OpenAI":
+                        llm_provider = st.selectbox("Model",["OpenAI/gpt-4o","Google/flan-t5","LiquidAI/LFM2-350M"])
+                        if llm_provider == "OpenAI/gpt-4o":
                             api_key = st.text_input("API Key")
                 
             else:
@@ -245,6 +248,10 @@ if uploaded_file is not None:
         #===clean csv===
         @st.cache_data(ttl=3600, show_spinner=False)
         def clean_csv(extype):
+            if (ColCho=="Abstract + Title"):
+                papers["Abstract + Title"] = papers["Title"] + " " + papers["Abstract"]
+                st.write(papers["Abstract + Title"])
+
             paper = papers.dropna(subset=[ColCho])
                      
             #===mapping===
@@ -527,16 +534,24 @@ if uploaded_file is not None:
                         "MMR": mmr,
                     }
                     if topic_labelling:
-                        if llm_provider == "OpenAI":
+                        if llm_provider == "OpenAI/gpt-4o":
                             client = openai.OpenAI(api_key=api_key)
                             representation_model = {
                                 "KeyBERT": keybert,
                                 "MMR": mmr,
                                 "test": OpenAI(client, model = "gpt-4o-mini", delay_in_seconds=10)
                             }
-                        elif llm_provider == "HuggingFace":
-                            gennie = pipeline("text2text-generation", model = "google/flan-t5-base")
-                            clientmod = TextGeneration(gennie)
+                        elif llm_provider == "Google/flan-t5":
+                            pipe = pipeline("text2text-generation", model = "google/flan-t5-base")
+                            clientmod = TextGeneration(pipe)
+                            representation_model = {
+                                "KeyBERT": keybert,
+                                "MMR": mmr,
+                                "test": clientmod
+                            }
+                        elif llm_provider == "LiquidAI/LFM2-350M":
+                            pipe = pipeline("text-generation", model = "LiquidAI/LFM2-350M")
+                            clientmod = TextGeneration(pipe)
                             representation_model = {
                                 "KeyBERT": keybert,
                                 "MMR": mmr,
@@ -653,7 +668,6 @@ if uploaded_file is not None:
                 st.button("Download Results")
                 st.text("Click Download results button at bottom of page")
 
-    except Exception as e:
+    except:
         st.error("Please ensure that your file is correct. Please contact us if you find that this is an error.", icon="🚨")
-        st.write(e)
         st.stop()

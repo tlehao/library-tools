@@ -44,6 +44,8 @@ with st.popover("🔗 Menu"):
     st.page_link("pages/6 Keywords Stem.py", label="Keywords Stem", icon="6️⃣")
     st.page_link("pages/7 Sentiment Analysis.py", label="Sentiment Analysis", icon="7️⃣")
     st.page_link("pages/8 Shifterator.py", label="Shifterator", icon="8️⃣")
+    st.page_link("pages/9 Summarization.py", label = "Summarization",icon ="9️⃣")
+    st.page_link("pages/10 WordCloud.py", label = "WordCloud", icon = "🔟")
     
 st.header("Shifterator", anchor=False)
 st.subheader('Put your file here...', anchor=False)
@@ -519,6 +521,6 @@ if uploaded_file is not None:
             st.button('📥 Click to download result')
             st.text("Click the Download button to get the CSV result.") 
 
-    except Exception as e:
+    except:
         st.error("Please ensure that your file is correct. Please contact us if you find that this is an error.", icon="🚨")
         st.stop()

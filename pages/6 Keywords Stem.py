@@ -45,6 +45,9 @@ with st.popover("🔗 Menu"):
     st.page_link("pages/5 Burst Detection.py", label="Burst Detection", icon="5️⃣")
     st.page_link("pages/6 Keywords Stem.py", label="Keywords Stem", icon="6️⃣")
     st.page_link("pages/7 Sentiment Analysis.py", label="Sentiment Analysis", icon="7️⃣")
+    st.page_link("pages/8 Shifterator.py", label="Shifterator", icon="8️⃣")
+    st.page_link("pages/9 Summarization.py", label = "Summarization",icon ="9️⃣")
+    st.page_link("pages/10 WordCloud.py", label = "WordCloud", icon = "🔟")
     
 
 st.header("Keywords Stem", anchor=False)
@@ -292,7 +295,6 @@ if uploaded_file is not None:
             st.divider()
             st.text("Download table")
             st.markdown("![Downloading visualization](https://raw.githubusercontent.com/faizhalas/library-tools/mainimages/downloadtable.png")
-    except Exception as e:
-        st.write(e)
+    except:
         st.error("Please ensure that your file is correct. Please contact us if you find that this is an error.", icon="🚨")
         st.stop()     
