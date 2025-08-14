@@ -37,8 +37,10 @@ with st.popover("🔗 Menu"):
     st.page_link("pages/6 Keywords Stem.py", label="Keywords Stem", icon="6️⃣")
     st.page_link("pages/7 Sentiment Analysis.py", label="Sentiment Analysis", icon="7️⃣")
     st.page_link("pages/8 Shifterator.py", label="Shifterator", icon="8️⃣")
+    st.page_link("pages/9 Summarization.py", label = "Summarization",icon ="9️⃣")
+    st.page_link("pages/10 WordCloud.py", label = "WordCloud", icon = "🔟")
     
-st.header("Summarization test", anchor=False)
+st.header("Summarization", anchor=False)
 st.subheader('Put your file here...', anchor=False)
 
 #========unique id========
@@ -89,7 +91,7 @@ if uploaded_file is not None:
         
         method = st.selectbox("Method",("Extractive","Abstractive"))
         if method == "Abstractive":
-            ab_method = st.selectbox("Abstractive method", ("Pegasus x-sum","FalconsAI t5"))
+            ab_method = st.selectbox("Abstractive method", ("Pegasus x-sum","FalconsAI t5","facebook/bart-large-cnn"))
             min_length = st.number_input("Minimum length", min_value = 0)
             max_length = st.number_input("Maximum length", min_value = 1)        
 
@@ -152,6 +154,13 @@ if uploaded_file is not None:
                     summary = summed[0]["summary_text"]
                     return summary
 
+                def transformersum(text,model):
+                    summarizer = pipeline("summarization", model = model)
+                    summed = summarizer(text, max_length = max_length, min_length = min_length, do_sample = False)
+                    summary = summed[0]["summary_text"]
+                    return summary
+                
+
                 def bulkScore(combined):
                     
                     scorelist = []
@@ -198,6 +207,8 @@ if uploaded_file is not None:
 
                                 elif ab_method == "FalconsAI t5":
                                     summary = t5summ(fulltext)
+                                elif ab_method == "facebook/bart-large-cnn":
+                                    summary = transformersum(fulltext,ab_method)
                         with c2:
                             
                             st.header("Summarized")
@@ -300,5 +311,6 @@ if uploaded_file is not None:
                 st.button(label = "Download Results")
 
 
-    except Exception as e:
-        st.write(e)
+    except Exception:
+        st.error("Please ensure that your file is correct. Please contact us if you find that this is an error.", icon="🚨")
+        st.stop()
