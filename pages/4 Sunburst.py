@@ -35,6 +35,9 @@ with st.popover("🔗 Menu"):
     st.page_link("pages/5 Burst Detection.py", label="Burst Detection", icon="5️⃣")
     st.page_link("pages/6 Keywords Stem.py", label="Keywords Stem", icon="6️⃣")
     st.page_link("pages/7 Sentiment Analysis.py", label="Sentiment Analysis", icon="7️⃣")
+    st.page_link("pages/8 Shifterator.py", label="Shifterator", icon="8️⃣")
+    st.page_link("pages/9 Summarization.py", label = "Summarization",icon ="9️⃣")
+    st.page_link("pages/10 WordCloud.py", label = "WordCloud", icon = "🔟")
     
 st.header("Sunburst Visualization", anchor=False)
 st.subheader('Put your file here...', anchor=False)
@@ -158,6 +161,11 @@ if uploaded_file is not None:
             if (GAP != 0):
                 YEAR = st.slider('Year', min_value=MIN, max_value=MAX, value=(MIN, MAX), on_change=reset_all)
                 KEYLIM = st.slider('Cited By Count',min_value = MIN1, max_value = MAX1, value = (MIN1,MAX1), on_change=reset_all)
+                with st.expander("Filtering setings"):
+                    invert_keys = st.toggle("Invert keys", on_change=reset_all)
+                    filtered_keys = st.text_input("Filter words in source, seperate with semicolon (;)", value = "", on_change = reset_all)
+                    keylist = filtered_keys.split(";") 
+                    select_col = st.selectbox("Column to filter from", (list(papers)))
             else:
                 st.write('You only have data in ', (MAX))
                 YEAR = (MIN, MAX)
@@ -173,14 +181,20 @@ if uploaded_file is not None:
             
             @st.cache_data(ttl=3600)
             def vis_sunbrust(extype):
-                papers['Cited by'] = papers['Cited by'].fillna(0)
+                data = papers.copy()
+                data['Cited by'] = data['Cited by'].fillna(0)
+
+                #filtering
+                if(invert_keys):
+                    data = data[data[select_col].isin(keylist)]
+                else:
+                    data = data[~data[select_col].isin(keylist)]
+
                 vis = pd.DataFrame()
-                vis[['doctype','source','citby','year']] = papers[['Document Type','Source title','Cited by','Year']]
+                vis[['doctype','source','citby','year']] = data[['Document Type','Source title','Cited by','Year']]
                 viz=vis.groupby(['doctype', 'source', 'year'])['citby'].agg(['sum','count']).reset_index()  
                 viz.rename(columns={'sum': 'cited by', 'count': 'total docs'}, inplace=True)
-
-
-
+        
                 fig = px.sunburst(viz, path=['doctype', 'source', 'year'], values='total docs',
                               color='cited by', 
                               color_continuous_scale='RdBu',
@@ -190,11 +204,13 @@ if uploaded_file is not None:
             
             years, papers = listyear(extype)
     
+            
             if {'Document Type','Source title','Cited by','Year'}.issubset(papers.columns):
-                fig, viz = vis_sunbrust(extype)
-                st.plotly_chart(fig, height=800, width=1200) #use_container_width=True)
-                
-                st.dataframe(viz)
+              
+                if st.button("Submit"):
+                    fig, viz = vis_sunbrust(extype)
+                    st.plotly_chart(fig, height=800, width=1200) #use_container_width=True)
+                    st.dataframe(viz)
                
             else:
                 st.error('We require these columns: Document Type, Source title, Cited by, Year', icon="🚨")
