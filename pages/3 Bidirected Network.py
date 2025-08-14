@@ -56,7 +56,9 @@ with st.popover("🔗 Menu"):
     st.page_link("pages/6 Keywords Stem.py", label="Keywords Stem", icon="6️⃣")
     st.page_link("pages/7 Sentiment Analysis.py", label="Sentiment Analysis", icon="7️⃣")
     st.page_link("pages/8 Shifterator.py", label="Shifterator", icon="8️⃣")
-    
+    st.page_link("pages/9 Summarization.py", label = "Summarization",icon ="9️⃣")
+    st.page_link("pages/10 WordCloud.py", label = "WordCloud", icon = "🔟")
+
 st.header("Bidirected Network", anchor=False)
 st.subheader('Put your file here...', anchor=False)
 
@@ -161,12 +163,16 @@ if uploaded_file is not None:
     
         col1, col2 = st.columns(2)
         with col1:
+            dispmethod = st.selectbox('Choose display method',
+            ("Altair-nx", "Agraph"), on_change=reset_all)
+
             method = st.selectbox(
                  'Choose method',
                ('Lemmatization', 'Stemming'), on_change=reset_all)
-            layout = st.selectbox(
-            'Choose graph layout',
-            ['Circular','Kamada Kawai','Random','Spring','Shell']
+            if dispmethod=="Altair-nx":
+                layout = st.selectbox(
+                'Choose graph layout',
+                ['Circular','Kamada Kawai','Random','Spring','Shell']
         ) 
         with col2:
             keyword = st.selectbox(
@@ -288,68 +294,96 @@ if uploaded_file is not None:
                             return res_node, res
                          
                          res_node, res = map_node(extype)
-                    ___='''
-                    @st.cache_data(ttl=3600)
-                    def arul_net(extype):
-                        nodes = []
-                        edges = []
-                
-                        for w,x in zip(res_node['size'], res_node['node']):
-                            nodes.append(x)
-                        for y,z,a,b in zip(res['antecedents'],res['consequents'],res['confidence'],res['to']):
-                            edge = (y,z)
 
-                            edges.append(edge)
+                         if dispmethod == "Agraph":
 
-                        return nodes, edges
+                            @st.cache_data(ttl=3600)
+                            def arul_network(extype):
+                                nodes = []
+                                edges = []
+        
+                                for w,x in zip(res_node['size'], res_node['node']):
+                                    nodes.append( Node(id=x, 
+                                                    label=x,
+                                                    size=50*w+10,
+                                                    shape="dot",
+                                                    labelHighlightBold=True,
+                                                    group=x,
+                                                    opacity=10,
+                                                    mass=1)
+                                            )   
+        
+                                for y,z,a,b in zip(res['antecedents'],res['consequents'],res['confidence'],res['to']):
+                                    edges.append( Edge(source=y, 
+                                                    target=z,
+                                                    title=b,
+                                                    width=a*2,
+                                                    physics=True,
+                                                    smooth=True
+                                                    ) 
+                                            )  
+                                return nodes, edges
+        
+                            nodes, edges = arul_network(extype)
+                            config = Config(width=1200,
+                                            height=800,
+                                            directed=True, 
+                                            physics=True, 
+                                            hierarchical=False,
+                                            maxVelocity=5
+                                            )
+        
+                            return_value = agraph(nodes=nodes, 
+                                                edges=edges, 
+                                                config=config)
+                            time.sleep(1)
+                            st.toast('Process completed', icon='📈')
 
-                    #nodes, edges =  arul_net(res)
-                    '''
 
-                    @st.cache_data(ttl=3600)
-                    def graphmaker(__netgraph):
+                         elif(dispmethod=="Altair-nx"):
+                            @st.cache_data(ttl=3600)
+                            def graphmaker(__netgraph):
 
-                        #add nodes, w is weight, x is node label
-                        for w,x in zip(res_node['size'], res_node['node']):
-                            __netgraph.add_node(x, size = (400 + 2000*w))
-                        #add edges, y is startpoint, z is endpoint, a is edge weight, b is title
-                        for y,z,a,b in zip(res['antecedents'],res['consequents'],res['confidence'],res['to']):
-                            __netgraph.add_edge(y,z, weight = int(a*10))
+                                #add nodes, w is weight, x is node label
+                                for w,x in zip(res_node['size'], res_node['node']):
+                                    __netgraph.add_node(x, size = (400 + 2000*w))
+                                #add edges, y is startpoint, z is endpoint, a is edge weight, b is title
+                                for y,z,a,b in zip(res['antecedents'],res['consequents'],res['confidence'],res['to']):
+                                    __netgraph.add_edge(y,z, weight = int(a*10))
 
 
-                    #Make graph with NetworkX
+                            #Make graph with NetworkX
 
-                    G=nx.DiGraph()
+                            G=nx.DiGraph()
 
-                    graphmaker(G)
+                            graphmaker(G)
 
-                    #G.add_edges_from(edges) ##### remove this later
 
-                    #Graph layout    
-                    if(layout=="Spring"):
-                        pos=nx.spring_layout(G)
-                    elif(layout == "Kamada Kawai"):
-                        pos=nx.kamada_kawai_layout(G)                    
-                    elif(layout == "Circular"):
-                        pos = nx.circular_layout(G)
-                    elif(layout=="Random"):
-                        pos = nx.random_layout(G)
-                    elif(layout=="Shell"):
-                        pos=nx.shell_layout(G)
-                  
-                    graph = anx.draw_networkx(G,pos, node_label = 'node',
-                    edge_width = 'weight',
-                    node_size = 'size',
-                    curved_edges = True,
-                    node_font_size=12,
-                    edge_alpha = 0.25,
-                    edge_colour = "grey",
-                    node_colour = "royalblue",                    
-                    chart_width=800,
-                    chart_height=600).interactive()
-                
-                    with st.container(border = True):
-                        st.altair_chart(graph)
+                            #Graph layout    
+                            if(layout=="Spring"):
+                                pos=nx.spring_layout(G)
+                            elif(layout == "Kamada Kawai"):
+                                pos=nx.kamada_kawai_layout(G)                    
+                            elif(layout == "Circular"):
+                                pos = nx.circular_layout(G)
+                            elif(layout=="Random"):
+                                pos = nx.random_layout(G)
+                            elif(layout=="Shell"):
+                                pos=nx.shell_layout(G)
+                        
+                            graph = anx.draw_networkx(G,pos, node_label = 'node',
+                            edge_width = 'weight',
+                            node_size = 'size',
+                            curved_edges = True,
+                            node_font_size=12,
+                            edge_alpha = 0.25,
+                            edge_colour = "grey",
+                            node_colour = "royalblue",                    
+                            chart_width=800,
+                            chart_height=600).interactive()
+                        
+                            with st.container(border = True):
+                                st.altair_chart(graph)
                 
 
         with tab2:
@@ -368,7 +402,6 @@ if uploaded_file is not None:
             st.text("Hover cursor over table, and click download arrow")
             st.image("images/tablenetwork.png")
             
-    except Exception as e:
-        st.write(e)
+    except:
         st.error("Please ensure that your file is correct. Please contact us if you find that this is an error.", icon="🚨")
         st.stop()
