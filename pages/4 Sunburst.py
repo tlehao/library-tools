@@ -159,11 +159,11 @@ if uploaded_file is not None:
                 sys.exit(1)
             
             if (GAP != 0):
-                YEAR = st.slider('Year', min_value=MIN, max_value=MAX, value=(MIN, MAX), on_change=reset_all)
-                KEYLIM = st.slider('Cited By Count',min_value = MIN1, max_value = MAX1, value = (MIN1,MAX1), on_change=reset_all)
+                YEAR = st.slider('Year', min_value=MIN, max_value=MAX, value=(MIN, MAX))
+                KEYLIM = st.slider('Cited By Count',min_value = MIN1, max_value = MAX1, value = (MIN1,MAX1))
                 with st.expander("Filtering setings"):
-                    invert_keys = st.toggle("Invert keys", on_change=reset_all)
-                    filtered_keys = st.text_input("Filter words in source, seperate with semicolon (;)", value = "", on_change = reset_all)
+                    invert_keys = st.toggle("Invert keys")
+                    filtered_keys = st.text_input("Filter words in source, seperate with semicolon (;)", value = "\n")
                     keylist = filtered_keys.split(";") 
                     select_col = st.selectbox("Column to filter from", (list(papers)))
             else:
@@ -186,9 +186,9 @@ if uploaded_file is not None:
 
                 #filtering
                 if(invert_keys):
-                    data = data[data[select_col].isin(keylist)]
+                    data = data[data[select_col].str.contains('|'.join(keylist), na=False)]
                 else:
-                    data = data[~data[select_col].isin(keylist)]
+                    data = data[~data[select_col].str.contains('|'.join(keylist), na=False)]
 
                 vis = pd.DataFrame()
                 vis[['doctype','source','citby','year']] = data[['Document Type','Source title','Cited by','Year']]
@@ -207,7 +207,7 @@ if uploaded_file is not None:
             
             if {'Document Type','Source title','Cited by','Year'}.issubset(papers.columns):
               
-                if st.button("Submit"):
+                if st.button("Submit", on_click = reset_all):
                     fig, viz = vis_sunbrust(extype)
                     st.plotly_chart(fig, height=800, width=1200) #use_container_width=True)
                     st.dataframe(viz)
@@ -222,6 +222,7 @@ if uploaded_file is not None:
         with tab3:
             st.text("Click the camera icon on the top right menu (you may need to hover your cursor within the visualization)")
             st.markdown("![Downloading visualization](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/download_bertopic.jpg)")
-    except:
+    except Exception as e:
+        st.write(e)
         st.error("Please ensure that your file is correct. Please contact us if you find that this is an error.", icon="🚨")
         st.stop()
