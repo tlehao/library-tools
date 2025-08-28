@@ -63,6 +63,35 @@ def reset_all():
 def read_txt(intext):
     return (intext.read()).decode()
 
+@st.cache_data(ttl=3600)
+def conv_txt(extype):
+    if("PMID" in (uploaded_file.read()).decode()):
+        uploaded_file.seek(0)
+        papers = sf.medline(uploaded_file)
+        print(papers)
+        return papers
+    col_dict = {'TI': 'Title',
+            'SO': 'Source title',
+            'DE': 'Author Keywords',
+            'DT': 'Document Type',
+            'AB': 'Abstract',
+            'TC': 'Cited by',
+            'PY': 'Year',
+            'ID': 'Keywords Plus',
+            'rights_date_used': 'Year'}
+    uploaded_file.seek(0)
+    papers = pd.read_csv(uploaded_file, sep='\t')
+    
+    #if text just has one column (or is not csv) return nothing
+    if(len(papers.columns)==1):
+        return
+
+    if("htid" in papers.columns):
+        papers = sf.htrc(papers)
+    papers.rename(columns=col_dict, inplace=True)
+    print(papers)
+    return papers
+
 #===csv reading===
 @st.cache_data(ttl=3600)
 def upload(file):
@@ -81,8 +110,6 @@ def upload(file):
 #===Read data===
 uploaded_file = st.file_uploader('', type=['txt','csv'], on_change=reset_all)
     
-
-
 if uploaded_file is not None:
     
     tab1, tab2, tab3 = st.tabs(["📈 Generate visualization", "📃 Reference", "⬇️ Download Help"])
@@ -92,25 +119,34 @@ if uploaded_file is not None:
 
         
         with c1:
-            max_font = st.number_input("Max Font Size", min_value = 1, value = 100, on_change=reset_all)
-            max_words = st.number_input("Max Word Count", min_value = 1, value = 250, on_change=reset_all)
-            background = st.selectbox("Background color", ["white","black"], on_change=reset_all)
+            max_font = st.number_input("Max Font Size", min_value = 1, value = 100)
+            max_words = st.number_input("Max Word Count", min_value = 1, value = 250)
+            background = st.selectbox("Background color", ["white","black"])
 
         
         with c2:
             words_to_remove = st.text_input("Remove specific words. Separate words by semicolons (;)")
             stopwords = words_to_remove.split(';')
-            image_width = st.number_input("Image width", value = 400, on_change=reset_all)
-            image_height = st.number_input("Image height", value = 200, on_change=reset_all)
-            scale = st.number_input("Scale", value = 1, on_change=reset_all)
+            image_width = st.number_input("Image width", value = 400)
+            image_height = st.number_input("Image height", value = 200)
+            scale = st.number_input("Scale", value = 1)
         
         try:
             extype = get_ext(uploaded_file)
 
             if extype.endswith(".txt"):
-                if st.button("Submit"):
-                    fulltext = read_txt(uploaded_file)
+                
+                try:
+                    texts = conv_txt(uploaded_file)
+                    colcho = c1.selectbox("Choose Column", list(texts))
+                    fulltext = " ".join(list(texts[colcho]))
 
+                except:
+                    fulltext = read_txt(uploaded_file)
+                
+                if st.button("Submit"):
+                    
+                    
                     wordcloud = WordCloud(max_font_size = max_font,
                     max_words = max_words,
                     background_color=background,
