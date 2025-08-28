@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
+from tools import sourceformat as sf
 
 # ===config===
 st.set_page_config(
@@ -58,39 +59,90 @@ def reset_all():
     st.cache_data.clear()
 
 #===text reading===
+@st.cache_data(ttl=3600)
 def read_txt(intext):
     return (intext.read()).decode()
 
 #===csv reading===
-def read_csv(uploaded_file):
-    fulltexts = pd.read_csv(uploaded_file)
-    fulltexts.rename(columns={fulltexts.columns[0]: "texts"}, inplace = True)
-    return fulltexts
+@st.cache_data(ttl=3600)
+def upload(file):
+    papers = pd.read_csv(uploaded_file)
+    if "About the data" in papers.columns[0]:
+        papers = sf.dim(papers)
+        col_dict = {'MeSH terms': 'Keywords',
+        'PubYear': 'Year',
+        'Times cited': 'Cited by',
+        'Publication Type': 'Document Type'
+        }
+        papers.rename(columns=col_dict, inplace=True)
     
+    return papers
 
 #===Read data===
-uploaded_file = st.file_uploader('', type=['txt'], on_change=reset_all)
+uploaded_file = st.file_uploader('', type=['txt','csv'], on_change=reset_all)
+    
 
 
 if uploaded_file is not None:
-    try:
-        extype = get_ext(uploaded_file)
-
-        if extype.endswith(".txt"):
-            fulltext = read_txt(uploaded_file)
-
-            wordcloud = WordCloud().generate(fulltext)
-            img = wordcloud.to_image()
-
-            with st.container(border=True):
-                st.image(img)
-
-        elif extype.endswith(".csv"):
-            texts = read_csv(uploaded_file)
-
+    
+    tab1, tab2, tab3 = st.tabs(["📈 Generate visualization", "📃 Reference", "⬇️ Download Help"])
+    
+    with tab1:
+        c1, c2 = st.columns(2)
 
         
+        with c1:
+            max_font = st.number_input("Max Font Size", min_value = 1, value = 100, on_change=reset_all)
+            max_words = st.number_input("Max Word Count", min_value = 1, value = 250, on_change=reset_all)
+            background = st.selectbox("Background color", ["white","black"], on_change=reset_all)
 
+        
+        with c2:
+            words_to_remove = st.text_input("Remove specific words. Separate words by semicolons (;)")
+            stopwords = words_to_remove.split(';')
+            image_width = st.number_input("Image width", value = 400, on_change=reset_all)
+            image_height = st.number_input("Image height", value = 200, on_change=reset_all)
+            scale = st.number_input("Scale", value = 1, on_change=reset_all)
+        
+        try:
+            extype = get_ext(uploaded_file)
 
-    except Exception as e:
-        st.write(e)
+            if extype.endswith(".txt"):
+                if st.button("Submit"):
+                    fulltext = read_txt(uploaded_file)
+
+                    wordcloud = WordCloud(max_font_size = max_font,
+                    max_words = max_words,
+                    background_color=background,
+                    stopwords = stopwords,
+                    height = image_height,
+                    width = image_width,
+                    scale = scale).generate(fulltext)
+                    img = wordcloud.to_image()
+
+                    with st.container(border=True):
+                        st.image(img, use_container_width=True)
+
+            elif extype.endswith(".csv"):
+                texts = upload(uploaded_file)
+
+                colcho = c1.selectbox("Choose Column", list(texts))
+
+                fullcolumn = " ".join(list(texts[colcho]))
+
+                if st.button("Submit"):
+
+                    wordcloud = WordCloud(max_font_size = max_font,
+                    max_words = max_words,
+                    background_color=background,
+                    stopwords = stopwords,
+                    height = image_height,
+                    width = image_width,
+                    scale = scale).generate(fullcolumn)
+                    img = wordcloud.to_image()
+
+                    with st.container(border=True):
+                        st.image(img, use_container_width=True)
+
+        except Exception as e:
+            st.write(e)
