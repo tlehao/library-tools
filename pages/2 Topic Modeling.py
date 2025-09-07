@@ -570,7 +570,7 @@ if uploaded_file is not None:
             
             @st.cache_resource(ttl = 3600, show_spinner=False)
             def Vis_Topics(extype):
-                fig1 = topic_model.visualize_topics()
+                fig1 = topic_model.visualize_topics(custom_labels = True)
                 return fig1
             @st.cache_resource(ttl = 3600, show_spinner=False)
             def Vis_Documents(extype):
@@ -642,14 +642,12 @@ if uploaded_file is not None:
                             on_click="ignore",
                         )
 
-                except ValueError as e:
-                    st.write(e)
+                except ValueError:
                     st.error('🙇‍♂️ Please raise the number of topics and click submit')
 
 
-                except NameError as e:
+                except NameError:
                     st.warning('🖱️ Please click Submit')
-                    st.write(e)
     
             with tab2:
                 st.markdown('**Grootendorst, M. (2022). BERTopic: Neural topic modeling with a class-based TF-IDF procedure. arXiv preprint arXiv:2203.05794.** https://doi.org/10.48550/arXiv.2203.05794')
