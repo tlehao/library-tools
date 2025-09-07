@@ -96,9 +96,9 @@ if uploaded_file is not None:
             max_length = st.number_input("Maximum length", min_value = 1)        
 
         if method == "Extractive":
-            ex_method = st.selectbox("Extractive method", ("t5","Spacy PyTextRank"))
-            if ex_method == "Spacy PyTextRank":
-                phrase_limit = st.number_input("Phrase length limit", min_value = 0)
+            ex_method = st.selectbox("Extractive method", ("t5","PyTextRank"))
+            if ex_method == "PyTextRank":
+                phrase_limit = st.number_input("Phrase limit", min_value = 0)
                 sentence_limit = st.number_input("Sentence limit", min_value = 0)
             elif ex_method == "t5" or ex_method == "FalconsAI t5":
                 min_length = st.number_input("Minimum length", min_value = 0)
@@ -113,7 +113,7 @@ if uploaded_file is not None:
             with tab1:
                 
                 def SpacyRank(text):
-                    nlp = spacy.load("en_core_web_lg")
+                    nlp = spacy.load("en_core_web_sm")
                     nlp.add_pipe("textrank")
                     doc = nlp(text)
                     summary = ""
@@ -153,6 +153,8 @@ if uploaded_file is not None:
                     summed = summarizer(text, max_length = max_length, min_length = min_length, do_sample = False)                    
                     summary = summed[0]["summary_text"]
                     return summary
+
+                #used for any other huggingface model not used above
 
                 def transformersum(text,model):
                     summarizer = pipeline("summarization", model = model)
@@ -196,7 +198,7 @@ if uploaded_file is not None:
                                     st.write(fulltext)
 
                             if method == "Extractive":
-                                if(ex_method == "Spacy PyTextRank"):
+                                if(ex_method == "PyTextRank"):
                                     summary = SpacyRank(fulltext)
                                 elif(ex_method == "t5"):
                                     summary = t5summ(fulltext)
@@ -226,7 +228,7 @@ if uploaded_file is not None:
                                 scorer = rouge_scorer.RougeScorer(['rouge1', 'rougeL'], use_stemmer=True)
                                 rougescores = scorer.score(reference, candidate)
 
-                                st.write(f"BLEU Score (NLTK): {BLEuscore:.2f}")
+                                st.write(f"BLEU Score: {BLEuscore:.2f}")
                                 st.write(f"ROUGE-1 F1 Score: {rougescores['rouge1'].fmeasure:.2f}")
 
                                 text_file = summary
@@ -239,7 +241,7 @@ if uploaded_file is not None:
 
                     elif(extype.endswith(".csv")):
                         if method == "Extractive":
-                            if(ex_method == "Spacy PyTextRank"):
+                            if(ex_method == "PyTextRank"):
                                 summaries = texts['texts'].apply(SpacyRank)
                                 fullnsums = summaries.to_frame()
                                 fullnsums['full'] = texts['texts']
@@ -293,20 +295,16 @@ if uploaded_file is not None:
                                 label = "Download scores and results",
                                 data = result2,
                                 file_name = "ScoredSummaries.csv",
-                                mime = "test\csv",
+                                mime = "text\csv",
                                 on_click = "ignore"
                             )
-
-
-                            
-
 
             #do this
             with tab2:
                 st.write("")
 
             with tab3:
-                st.header("Summarization result (.txt)")
+                st.header("Summarization result")
                 st.write("Click the download button (example) to get the text file result")
                 st.button(label = "Download Results")
 
