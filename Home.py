@@ -54,6 +54,10 @@ with mt1:
         st.markdown("![Sentiment](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/sentiment.png)")
         if st.button("Go to Sentiment Analysis"):
             st.switch_page("pages/7 Sentiment Analysis.py")
+    with col24.container(border=True):
+        st.markdown("![Summarization](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/summarization.png)")
+        if st.button("Go to Summarization"):
+            st.switch_page("pages/9 Summarization.py")
     
     st.header("Visualizations", divider=True, anchor=False)
 
@@ -79,7 +83,7 @@ with mt1:
             st.switch_page("pages/8 Shifterator.py")
 
     with col35.container(border=True):
-        st.markdown("![WordCloud]")
+        st.markdown("![WordCloud](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/wordcloud.png)")
         if(st.button("Go to WordCloud")):
             st.switch_page("pages/10 WordCloud.py")
 
