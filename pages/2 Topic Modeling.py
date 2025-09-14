@@ -166,7 +166,7 @@ def conv_json(extype):
     keywords.rename(columns=col_dict,inplace=True)
     return keywords
 
-@st.cache_resource(ttl=3600)
+@st.cache_data(ttl=3600)
 def conv_pub(extype):
     if (get_ext(extype)).endswith('.tar.gz'):
         bytedata = extype.read()
@@ -203,36 +203,38 @@ if uploaded_file is not None:
         num_cho = c3.number_input('Choose number of topics', min_value=2, max_value=30, value=5)
 
         d1, d2 = st.columns([3,7])
-        xgram = d1.selectbox("N-grams", ("1", "2", "3"))
+        xgram = d1.selectbox("N-grams", ("1", "2", "3"), on_change=reset_all)
         xgram = int(xgram)
-        words_to_remove = d2.text_input("Remove specific words. Separate words by semicolons (;)")
+        words_to_remove = d2.text_input("Remove specific words. Separate words by semicolons (;)", on_change=reset_all)
     
-        rem_copyright = d1.toggle('Remove copyright statement', value=True)
-        rem_punc = d2.toggle('Remove punctuation', value=True)
+        rem_copyright = d1.toggle('Remove copyright statement', value=True, on_change=reset_all)
+        rem_punc = d2.toggle('Remove punctuation', value=True, on_change=reset_all)
 
         #===advance settings===
         with st.expander("🧮 Show advance settings"): 
-            t1, t2, t3 = st.columns([3,3,4])
+            t1, t2, t3, t4 = st.columns(4)
             if method == 'pyLDA':
-                py_random_state = t1.number_input('Random state', min_value=0, max_value=None, step=1)
-                py_chunksize = t2.number_input('Chunk size', value=100 , min_value=10, max_value=None, step=1)
-                opt_threshold = t3.number_input('Threshold', value=100 , min_value=1, max_value=None, step=1)
+                py_random_state = t1.number_input('Random state', min_value=0, max_value=None, step=1, help='Ensuring the reproducibility.')
+                py_chunksize = t2.number_input('Chunk size', value=100 , min_value=10, max_value=None, step=1, help='Number of documents to be used in each training chunk.')
+                opt_threshold = t3.number_input('Threshold (Gensim)', value=100 , min_value=1, max_value=None, step=1, help='Lower = More phrases. Higher = Fewer phrases.')
+                opt_relevance = t4.number_input('Lambda (λ)', value=0.6 , min_value=0.0, max_value=1.0, step=0.01, help='Lower = More unique. Higher = More frequent.')
+                
                 
             elif method == 'Biterm':
-                btm_seed = t1.number_input('Random state seed', value=100 , min_value=1, max_value=None, step=1)
-                btm_iterations = t2.number_input('Iterations number', value=20 , min_value=2, max_value=None, step=1)
-                opt_threshold = t3.number_input('Threshold', value=100 , min_value=1, max_value=None, step=1)
+                btm_seed = t1.number_input('Random state seed', value=100 , min_value=1, max_value=None, step=1, help='Ensuring the reproducibility.')
+                btm_iterations = t2.number_input('Iterations number', value=20 , min_value=2, max_value=None, step=1, help='Number of iterations the model fitting process has gone through.')
+                opt_threshold = t3.number_input('Threshold (Gensim)', value=100 , min_value=1, max_value=None, step=1, help='Lower = More phrases. Higher = Fewer phrases.')
                 
             elif method == 'BERTopic':
-                u1, u2 = st.columns([5,5])
+                #u1, u2 = st.columns([5,5])
                 
-                bert_top_n_words = u1.number_input('top_n_words', value=5 , min_value=5, max_value=25, step=1)
-                bert_random_state = u2.number_input('random_state', value=42 , min_value=1, max_value=None, step=1)
-                bert_n_components = u1.number_input('n_components', value=5 , min_value=1, max_value=None, step=1)
-                bert_n_neighbors = u2.number_input('n_neighbors', value=15 , min_value=1, max_value=None, step=1)
+                bert_top_n_words = t1.number_input('top_n_words', value=5 , min_value=5, max_value=25, step=1, help='Number of words per topic.')
+                bert_random_state = t2.number_input('random_state', value=42 , min_value=1, max_value=None, step=1, help="Please be aware we currently can't do the reproducibility on Bertopic.")
+                bert_n_components = t3.number_input('n_components', value=5 , min_value=1, max_value=None, step=1, help='The dimensionality of the embeddings after reducing them.')
+                bert_n_neighbors = t4.number_input('n_neighbors', value=15 , min_value=1, max_value=None, step=1, help='The number of neighboring sample points used when making the manifold approximation.')
                 bert_embedding_model = st.radio(
                     "embedding_model", 
-                    ["all-MiniLM-L6-v2", "paraphrase-multilingual-MiniLM-L12-v2", "en_core_web_sm"], index=0, horizontal=True)
+                    ["all-MiniLM-L6-v2", "paraphrase-multilingual-MiniLM-L12-v2", "en_core_web_sm"], index=0, horizontal=True, help= 'Select paraphrase-multilingual if your documents are in a language other than English or are multilingual.')
                 
                 fine_tuning = st.toggle("Use Fine-tuning")
                 if fine_tuning:
@@ -271,7 +273,7 @@ if uploaded_file is not None:
             #===lemmatize===
             lemmatizer = WordNetLemmatizer()
             
-            @st.cache_resource(ttl=3600)
+            @st.cache_data(ttl=3600)
             def lemmatize_words(text):
                 words = text.split()
                 words = [lemmatizer.lemmatize(word) for word in words]
@@ -281,7 +283,7 @@ if uploaded_file is not None:
             words_rmv = [word.strip() for word in words_to_remove.split(";")]
             remove_dict = {word: None for word in words_rmv}
             
-            @st.cache_resource(ttl=3600)
+            @st.cache_data(ttl=3600)
             def remove_words(text):
                  words = text.split()
                  cleaned_words = [word for word in words if word not in remove_dict]
@@ -328,6 +330,7 @@ if uploaded_file is not None:
                                 random_state=py_random_state,
                                 chunksize=py_chunksize,
                                 alpha='auto',
+                                gamma_threshold=opt_relevance,
                                 per_word_topics=False)
                     pprint(lda_model.print_topics())
                     doc_lda = lda_model[corpus]
@@ -663,7 +666,7 @@ if uploaded_file is not None:
                 st.markdown("![Downloading visualization](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/download_bertopic.jpg)")
                 st.divider()
                 st.subheader(':blue[Downloading CSV Results]', anchor=False)
-                st.button("Download Results")
+                st.button("Download Results", on_click="ignore")
                 st.text("Click Download results button at bottom of page")
 
     except:

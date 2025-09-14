@@ -235,16 +235,16 @@ if uploaded_file is not None:
         col1, col2, col3 = st.columns(3)
         with col1:
             supp = st.slider(
-                'Select value of Support',
-                0.001, 1.000, (0.010), on_change=reset_all)
+                'Support',
+                0.001, 1.000, (0.010), on_change=reset_all, help='Frequency of occurrence of keywords in a set of documents')
         with col2:
             conf = st.slider(
-                'Select value of Confidence',
-                0.001, 1.000, (0.050), on_change=reset_all)
+                'Confidence',
+                0.001, 1.000, (0.050), on_change=reset_all, help='Presence of keywords in documents that included the antecedents')
         with col3:
             maxlen = st.slider(
                 'Maximum length of the itemsets generated',
-                2, 8, (2), on_change=reset_all)
+                2, 8, (2), on_change=reset_all, help='')
     
         tab1, tab2, tab3, tab4 = st.tabs(["📈 Result & Generate visualization", "📃 Reference", "📓 Recommended Reading", "⬇️ Download Help"])
         
@@ -278,7 +278,7 @@ if uploaded_file is not None:
                 st.error('Please lower your value.', icon="🚨")
             else:
                 restab = arm_table(extype)
-                restab = st.data_editor(restab, use_container_width=True)
+                restab = st.data_editor(restab, use_container_width=True, hide_index=True)
                 res = restab[restab['Show'] == True] 
                        
                  #===visualize===
@@ -400,7 +400,7 @@ if uploaded_file is not None:
             st.markdown("![Downloading graph](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/download_bidirected.jpg)")     
             st.subheader("Download table as CSV")
             st.text("Hover cursor over table, and click download arrow")
-            st.image("images/tablenetwork.png")
+            st.markdown("![Downloading table](https://raw.githubusercontent.com/faizhalas/library-tools/refs/heads/main/images/tablenetwork.png)")
             
     except:
         st.error("Please ensure that your file is correct. Please contact us if you find that this is an error.", icon="🚨")

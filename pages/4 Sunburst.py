@@ -4,7 +4,6 @@ import pandas as pd
 import plotly.express as px
 import numpy as np
 import sys
-import json
 from tools import sourceformat as sf
 
 
@@ -38,9 +37,44 @@ with st.popover("🔗 Menu"):
     st.page_link("pages/8 Shifterator.py", label="Shifterator", icon="8️⃣")
     st.page_link("pages/9 Summarization.py", label = "Summarization",icon ="9️⃣")
     st.page_link("pages/10 WordCloud.py", label = "WordCloud", icon = "🔟")
-    
-st.header("Sunburst Visualization", anchor=False)
-st.subheader('Put your file here...', anchor=False)
+
+with st.expander("Before you start", expanded = True):
+     
+        tab1, tab2, tab3, tab4 = st.tabs(["Prologue", "Steps", "Requirements", "Download Visualization"])
+        with tab1:
+            st.write("Sunburst's ability to present a thorough and intuitive picture of complex hierarchical data is an essential benefit. Librarians can easily browse and grasp the relationships between different levels of the hierarchy by employing sunburst visualizations. Sunburst visualizations can also be interactive, letting librarians and users drill down into certain categories or subcategories for further information. This interactive and visually appealing depiction improves the librarian's understanding of the collection and provides users with an engaging and user-friendly experience, resulting in improved information retrieval and decision-making.")
+            
+        with tab2:
+            st.text("1. Put your CSV file.")
+            st.text("2. You can set the range of years to see how it changed.")
+            st.text("3. The sunburst has 3 levels. The inner circle is the type of data, meanwhile, the middle is the source title and the outer is the year the article was published.")
+            st.text("4. The size of the slice depends on total documents. The average of inner and middle levels is calculated by formula below:")
+            st.code('avg = sum(a * weights) / sum(weights)', language='python')
+            
+        with tab3:
+            st.code("""
+            +----------------+------------------------+--------------------+
+            |     Source     |       File Type        |     Column         |
+            +----------------+------------------------+--------------------+
+            | Scopus         | Comma-separated values | Source title,      |
+            |                | (.csv)                 | Document Type,     |
+            +----------------+------------------------| Cited by, Year     |
+            | Web of Science | Tab delimited file     |                    |
+            |                | (.txt)                 |                    |
+            +----------------+------------------------+--------------------+
+            | Lens.org       | Comma-separated values | Publication Year,  |
+            |                | (.csv)                 | Publication Type,  | 
+            |                |                        | Source Title,      |
+            |                |                        | Citing Works Count |
+            +----------------+------------------------+--------------------+
+            | Hathitrust     | .json                  | htid(Hathitrust ID)|
+            +----------------+------------------------+--------------------+
+            """, language=None)          
+
+        with tab4:  
+             st.subheader(':blue[Sunburst]', anchor=False)
+             st.text("Click the camera icon on the top right menu")
+             st.markdown("![Downloading visualization](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/download_bertopic.jpg)")
 
 #===clear cache===
 def reset_all():
@@ -94,6 +128,7 @@ def conv_txt(extype):
     print(papers)
     return papers
 
+
 @st.cache_data(ttl=3600)
 def conv_json(extype):
     col_dict={'title': 'title',
@@ -101,11 +136,7 @@ def conv_json(extype):
     'content_provider_code': 'Document Type',
     'Keywords':'Source title'
     }
-
-    data = json.load(uploaded_file)
-    hathifile = data['gathers']
-    keywords = pd.DataFrame.from_records(hathifile)
-
+    keywords = pd.read_json(uploaded_file)
     keywords = sf.htrc(keywords)
     keywords['Cited by'] = keywords.groupby(['Keywords'])['Keywords'].transform('size')
     keywords.rename(columns=col_dict,inplace=True)
@@ -146,19 +177,25 @@ if uploaded_file is not None:
             MIN1 = int(papers['Cited by'].min())
             MAX1 = int(papers['Cited by'].max())
             GAP = MAX - MIN
-            return papers, MIN, MAX, GAP, MIN1, MAX1
+            unique_stitle = set()
+            unique_stitle.update(papers['Source title'].dropna())
+            list_stitle = sorted(list(unique_stitle))
+            return papers, MIN, MAX, GAP, MIN1, MAX1, list_stitle
 
         tab1, tab2, tab3 = st.tabs(["📈 Generate visualization", "📓 Recommended Reading", "⬇️ Download Help"])
         
         with tab1:    
             #===sunburst===
             try:
-                papers, MIN, MAX, GAP, MIN1, MAX1 = get_minmax(extype)
+                papers, MIN, MAX, GAP, MIN1, MAX1, list_stitle = get_minmax(extype)
             except KeyError:
                 st.error('Error: Please check again your columns.')
                 sys.exit(1)
+
+            stitle = st.selectbox('Focus on', (list_stitle), index=None, on_change=reset_all)
             
             if (GAP != 0):
+                col1, col2 = st.columns(2)
                 YEAR = st.slider('Year', min_value=MIN, max_value=MAX, value=(MIN, MAX))
                 KEYLIM = st.slider('Cited By Count',min_value = MIN1, max_value = MAX1, value = (MIN1,MAX1))
                 with st.expander("Filtering setings"):
@@ -167,20 +204,24 @@ if uploaded_file is not None:
                     keylist = filtered_keys.split(";") 
                     select_col = st.selectbox("Column to filter from", (list(papers)))
             else:
-                st.write('You only have data in ', (MAX))
+                col1.write('You only have data in ', (MAX))
                 YEAR = (MIN, MAX)
-                KEYLIM = (MIN1,MAX1)
+                KEYLIM = col2.slider('Cited By Count',min_value = MIN1, max_value = MAX1, value = (MIN1,MAX1), on_change=reset_all)
+                
             @st.cache_data(ttl=3600)
             def listyear(extype):
                 global papers
                 years = list(range(YEAR[0],YEAR[1]+1))
                 cited = list(range(KEYLIM[0],KEYLIM[1]+1))
+                if stitle:
+                    papers = papers[papers['Source title'].str.contains(stitle, case=False, na=False)]
                 papers = papers.loc[papers['Year'].isin(years)]
                 papers = papers.loc[papers['Cited by'].isin(cited)]
+                papers['Cited by'] = papers['Cited by'].fillna(0)
                 return years, papers
             
             @st.cache_data(ttl=3600)
-            def vis_sunbrust(extype):
+            def vis_sunburst(extype):
                 data = papers.copy()
                 data['Cited by'] = data['Cited by'].fillna(0)
 
@@ -208,7 +249,7 @@ if uploaded_file is not None:
             if {'Document Type','Source title','Cited by','Year'}.issubset(papers.columns):
               
                 if st.button("Submit", on_click = reset_all):
-                    fig, viz = vis_sunbrust(extype)
+                    fig, viz = vis_sunburst(extype)
                     st.plotly_chart(fig, height=800, width=1200) #use_container_width=True)
                     st.dataframe(viz)
                
