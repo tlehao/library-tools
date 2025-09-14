@@ -49,6 +49,55 @@ with st.popover("🔗 Menu"):
     st.page_link("pages/9 Summarization.py", label = "Summarization",icon ="9️⃣")
     st.page_link("pages/10 WordCloud.py", label = "WordCloud", icon = "🔟")
     
+with st.expander("Before you start", expanded = True):
+    tab1, tab2, tab3, tab4 = st.tabs(["Prologue", "Steps", "Requirements", "Download Result"])
+    with tab1:
+        st.write("This approach is effective for locating basic words and aids in catching the true meaning of the word, which can lead to improved semantic analysis and comprehension of the text. Some people find it difficult to check keywords before performing bibliometrics (using software such as VOSviewer and Bibliometrix). This strategy makes it easy to combine and search for fundamental words from keywords, especially if you have a large number of keywords. To do stemming or lemmatization on other text, change the column name to 'Keyword' in your file.")
+        st.divider()
+        st.write('💡 The idea came from this:')
+        st.write('Santosa, F. A. (2022). Prior steps into knowledge mapping: Text mining application and comparison. Issues in Science and Technology Librarianship, 102. https://doi.org/10.29173/istl2736')
+        
+    with tab2:
+        st.text("1. Put your file.")
+        st.text("2. Choose your preferable method. Picture below may help you to choose wisely.")
+        st.markdown("![Source: https://studymachinelearning.com/stemming-and-lemmatization/](https://studymachinelearning.com/wp-content/uploads/2019/09/stemmin_lemm_ex-1.png)")
+        st.text('Source: https://studymachinelearning.com/stemming-and-lemmatization/')
+        st.text("3. Now you need to select what kind of keywords you need.")
+        st.text("4. Finally, you can download and use the file on VOSviewer, Bibliometrix, or put it on OpenRefine to get better result!")
+        st.error("Please check what has changed. It's possible some keywords failed to find their roots.", icon="🚨")
+        
+    with tab3:
+        st.code("""
+        +----------------+------------------------+---------------------------------+
+        |     Source     |       File Type        |             Column              |
+        +----------------+------------------------+---------------------------------+
+        | Scopus         | Comma-separated values | Author Keywords                 |
+        |                | (.csv)                 | Index Keywords                  |
+        +----------------+------------------------+---------------------------------+
+        | Web of Science | Tab delimited file     | Author Keywords                 |
+        |                | (.txt)                 | Keywords Plus                   |
+        +----------------+------------------------+---------------------------------+
+        | Lens.org       | Comma-separated values | Keywords (Scholarly Works)      |
+        |                | (.csv)                 |                                 |
+        +----------------+------------------------+---------------------------------+
+        | Dimensions     | Comma-separated values | MeSH terms                      |
+        |                | (.csv)                 |                                 |
+        +----------------+------------------------+---------------------------------+
+        | Other          | .csv                   | Change your column to 'Keyword' |
+        +----------------+------------------------+---------------------------------+
+        | Hathitrust     | .json                  | htid (Hathitrust ID)            |
+        +----------------+------------------------+---------------------------------+
+        """, language=None)
+
+    with tab4:  
+            st.subheader(':blue[Result]', anchor=False)
+            st.button('Press to download result 👈')
+            st.text("Go to Result and click Download button.")  
+
+            st.divider()
+            st.subheader(':blue[List of Keywords]', anchor=False)
+            st.button('Press to download keywords 👈')
+            st.text("Go to List of Keywords and click Download button.")  
 
 st.header("Keywords Stem", anchor=False)
 st.subheader('Put your file here...', anchor=False)

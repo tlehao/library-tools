@@ -78,6 +78,61 @@ with st.popover("🔗 Menu"):
     st.page_link("pages/9 Summarization.py", label = "Summarization",icon ="9️⃣")
     st.page_link("pages/10 WordCloud.py", label = "WordCloud", icon = "🔟")
 
+with st.expander("Before you start", expanded = True):
+
+        tab1, tab2, tab3, tab4 = st.tabs(["Prologue", "Steps", "Requirements", "Download Visualization"])
+        with tab1:
+            st.write("Topic modeling has numerous advantages for librarians in different aspects of their work. A crucial benefit is an ability to quickly organize and categorize a huge volume of textual content found in websites, institutional archives, databases, emails, and reference desk questions. Librarians can use topic modeling approaches to automatically identify the primary themes or topics within these documents, making navigating and retrieving relevant information easier. Librarians can identify and understand the prevailing topics of discussion by analyzing text data with topic modeling tools, allowing them to assess user feedback, tailor their services to meet specific needs and make informed decisions about collection development and resource allocation. Making ontologies, automatic subject classification, recommendation services, bibliometrics, altmetrics, and better resource searching and retrieval are a few examples of topic modeling. To do topic modeling on other text like chats and surveys, change the column name to 'Abstract' in your file.")
+            st.divider()
+            st.write('💡 The idea came from this:')
+            st.write('Lamba, M., & Madhusudhan, M. (2021, July 31). Topic Modeling. Text Mining for Information Professionals, 105–137. https://doi.org/10.1007/978-3-030-85085-2_4')
+
+        with tab2:
+            st.text("1. Put your file. Choose your preferred column.")
+            st.text("2. Choose your preferred method. LDA is the most widely used, whereas Biterm is appropriate for short text, and BERTopic works well for large text data as well as supports more than 50+ languages.")
+            st.text("3. Finally, you can visualize your data.")
+            st.error("This app includes lemmatization and stopwords for the abstract text. Currently, we only offer English words.", icon="💬")
+            
+        with tab3:
+            st.code("""
+            +----------------+------------------------+----------------------------------+
+            |     Source     |       File Type        |              Column              |
+            +----------------+------------------------+----------------------------------+
+            | Scopus         | Comma-separated values | Choose your preferred column     |
+            |                | (.csv)                 | that you have                    |
+            +----------------+------------------------|                                  |
+            | Web of Science | Tab delimited file     |                                  |
+            |                | (.txt)                 |                                  |
+            +----------------+------------------------|                                  |
+            | Lens.org       | Comma-separated values |                                  |
+            |                | (.csv)                 |                                  |
+            +----------------+------------------------|                                  |
+            | Other          | .csv                   |                                  |
+            +----------------+------------------------|                                  |
+            | Hathitrust     | .json                  |                                  |
+            +----------------+------------------------+----------------------------------+
+            """, language=None)
+
+        with tab4:  
+            st.subheader(':blue[pyLDA]', anchor=False)
+            st.button('Download image')
+            st.text("Click Download Image button.")
+             
+            st.divider()
+            st.subheader(':blue[Biterm]', anchor=False)
+            st.text("Click the three dots at the top right then select the desired format.")
+            st.markdown("![Downloading visualization](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/download_biterm.jpg)")
+             
+            st.divider()
+            st.subheader(':blue[BERTopic]', anchor=False)
+            st.text("Click the camera icon on the top right menu")
+            st.markdown("![Downloading visualization](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/download_bertopic.jpg)")
+
+            st.divider()
+            st.subheader(':blue[CSV Result]', anchor=False)
+            st.text("Click Download button")
+            st.button('Download Results')
+
 st.header("Topic Modeling", anchor=False)
 st.subheader('Put your file here...', anchor=False)
 
@@ -478,7 +533,7 @@ if uploaded_file is not None:
     
                         #===download results===#
                         resultcsv = top_topics.to_csv().encode("utf-8")
-                        st.download_button(label = "Download Results", data=resultcsv, file_name="results.csv", mime="text\csv", on_click="ignore")
+                        st.download_button(label = "Download Results", data=resultcsv, file_name="results.csv", on_click="ignore")
 
                 except ValueError as g:
                     st.error('🙇‍♂️ Please raise the number of topics and click submit')
@@ -641,7 +696,6 @@ if uploaded_file is not None:
                             label = "Download Results",
                             data=resultcsv,
                             file_name="results.csv",
-                            mime="text\csv",
                             on_click="ignore",
                         )
 

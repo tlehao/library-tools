@@ -3,6 +3,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 from tools import sourceformat as sf
+import nltk
+from nltk.corpus import stopwords
+from gensim.parsing.preprocessing import remove_stopwords
+nltk.download('stopwords')
+
 
 # ===config===
 st.set_page_config(
@@ -34,7 +39,39 @@ with st.popover("🔗 Menu"):
     st.page_link("pages/8 Shifterator.py", label="Shifterator", icon="8️⃣")
     st.page_link("pages/9 Summarization.py", label = "Summarization",icon ="9️⃣")
     st.page_link("pages/10 WordCloud.py", label = "WordCloud", icon = "🔟")
-    
+
+with st.expander("Before you start", expanded = True):
+    tab1, tab2, tab3, tab4 = st.tabs(["Prologue", "Steps", "Requirements", "Download Visualization"])
+    with tab1:
+            st.write("")
+        
+    with tab2:
+        st.text("1. Put your file. Choose your preferred column to analyze (if CSV).")
+        st.text("2. Choose your preferred method to count the words and decide how many top words you want to include or remove.")
+        st.text("3. Finally, you can visualize your data.")
+        st.error("This app includes lemmatization and stopwords. Currently, we only offer English words.", icon="💬")
+        
+        with tab3:
+            st.code("""
+            +----------------+------------------------+
+            |     Source     |       File Type        |           
+            +----------------+------------------------+
+            | Scopus         | Comma-separated values |      
+            |                | (.csv)                 |     
+            +----------------+------------------------|   
+            | Lens.org       | Comma-separated values |                                  
+            |                | (.csv)                 |                                  
+            +----------------+------------------------|                                 
+            | Other          | .csv/ .txt(full text)  |                                  
+            +----------------+------------------------|                                  
+            | Hathitrust     | .json                  |                                  
+            +----------------+------------------------+
+            """, language=None)
+        
+    with tab4:
+        st.subheader(':blue[WordCloud Download]', anchor=False)
+        st.write("Right-click image and click \"Save-as\"")
+
 st.header("Wordcloud", anchor=False)
 st.subheader('Put your file here...', anchor=False)
 
@@ -126,7 +163,7 @@ if uploaded_file is not None:
         
         with c2:
             words_to_remove = st.text_input("Remove specific words. Separate words by semicolons (;)")
-            stopwords = words_to_remove.split(';')
+            filterwords = words_to_remove.split(';')
             image_width = st.number_input("Image width", value = 400)
             image_height = st.number_input("Image height", value = 200)
             scale = st.number_input("Scale", value = 1)
@@ -140,6 +177,8 @@ if uploaded_file is not None:
                     texts = conv_txt(uploaded_file)
                     colcho = c1.selectbox("Choose Column", list(texts))
                     fulltext = " ".join(list(texts[colcho]))
+                    fulltext = remove_stopwords(fulltext)
+                    
 
                 except:
                     fulltext = read_txt(uploaded_file)
@@ -150,7 +189,7 @@ if uploaded_file is not None:
                     wordcloud = WordCloud(max_font_size = max_font,
                     max_words = max_words,
                     background_color=background,
-                    stopwords = stopwords,
+                    stopwords = filterwords,
                     height = image_height,
                     width = image_width,
                     scale = scale).generate(fulltext)
@@ -165,13 +204,15 @@ if uploaded_file is not None:
                 colcho = c1.selectbox("Choose Column", list(texts))
 
                 fullcolumn = " ".join(list(texts[colcho]))
+                
+                fullcolumn = remove_stopwords(fullcolumn)
 
                 if st.button("Submit"):
 
                     wordcloud = WordCloud(max_font_size = max_font,
                     max_words = max_words,
                     background_color=background,
-                    stopwords = stopwords,
+                    stopwords = filterwords,
                     height = image_height,
                     width = image_width,
                     scale = scale).generate(fullcolumn)

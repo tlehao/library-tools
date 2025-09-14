@@ -59,6 +59,55 @@ with st.popover("🔗 Menu"):
     st.page_link("pages/9 Summarization.py", label = "Summarization",icon ="9️⃣")
     st.page_link("pages/10 WordCloud.py", label = "WordCloud", icon = "🔟")
 
+with st.expander("Before you start", expanded = True):
+
+        tab1, tab2, tab3, tab4 = st.tabs(["Prologue", "Steps", "Requirements", "Download Graph"])
+        with tab1:
+            st.write("The use of network text analysis by librarians can be quite beneficial. Finding hidden correlations and connections in textual material is a significant advantage. Using network text analysis tools, librarians can improve knowledge discovery, obtain deeper insights, and support scholars meaningfully, ultimately enhancing the library's services and resources. This menu provides a two-way relationship instead of the general network of relationships to enhance the co-word analysis. Since it is based on ARM, you may obtain transactional data information using this menu. Please name the column in your file 'Keyword' instead.")
+            st.divider()
+            st.write('💡 The idea came from this:') 
+            st.write('Santosa, F. A. (2023). Adding Perspective to the Bibliometric Mapping Using Bidirected Graph. Open Information Science, 7(1), 20220152. https://doi.org/10.1515/opis-2022-0152')
+
+        with tab2:
+            st.text("1. Put your file.")
+            st.text("2. Choose your preferable method. Picture below may help you to choose wisely.")
+            st.markdown("![Source: https://studymachinelearning.com/stemming-and-lemmatization/](https://studymachinelearning.com/wp-content/uploads/2019/09/stemmin_lemm_ex-1.png)")
+            st.text('Source: https://studymachinelearning.com/stemming-and-lemmatization/')
+            st.text("3. Choose the value of Support and Confidence. If you're not sure how to use it please read the article above or just try it!")
+            st.text("4. You can see the table and a simple visualization before making a network visualization.")
+            st.text('5. Click "Generate network visualization" to see the network')
+            st.error("The more data on your table, the more you'll see on network.", icon="🚨")
+            st.error("If the table contains many rows, the network will take more time to process. Please use it efficiently.", icon="⌛")
+            
+        with tab3:
+            st.code("""
+            +----------------+------------------------+---------------------------------+
+            |     Source     |       File Type        |             Column              |
+            +----------------+------------------------+---------------------------------+
+            | Scopus         | Comma-separated values | Author Keywords                 |
+            |                | (.csv)                 | Index Keywords                  |
+            +----------------+------------------------+---------------------------------+
+            | Web of Science | Tab delimited file     | Author Keywords                 |
+            |                | (.txt)                 | Keywords Plus                   |
+            +----------------+------------------------+---------------------------------+
+            | Lens.org       | Comma-separated values | Keywords (Scholarly Works)      |
+            |                | (.csv)                 |                                 |
+            +----------------+------------------------+---------------------------------+
+            | Dimensions     | Comma-separated values | MeSH terms                      |
+            |                | (.csv)                 |                                 |
+            +----------------+------------------------+---------------------------------+
+            | Other          | .csv                   | Change your column to 'Keyword' |
+            |                |                        | and separate the words with ';' |
+            +----------------+------------------------+---------------------------------+
+            | Hathitrust     | .json                  | htid (Hathitrust ID)            |
+            +----------------+------------------------+---------------------------------+
+            """, language=None)    
+
+        with tab4:  
+             st.subheader(':blue[Bidirected Network]', anchor=False)
+             st.text("Zoom in, zoom out, or shift the nodes as desired, then right-click and select Save image as ...")
+             st.markdown("![Downloading graph](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/download_bidirected.jpg)")      
+
 st.header("Bidirected Network", anchor=False)
 st.subheader('Put your file here...', anchor=False)
 

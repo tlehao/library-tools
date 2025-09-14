@@ -50,6 +50,49 @@ with st.popover("🔗 Menu"):
     st.page_link("pages/9 Summarization.py", label = "Summarization",icon ="9️⃣")
     st.page_link("pages/10 WordCloud.py", label = "WordCloud", icon = "🔟")
 
+with st.expander("Before you start", expanded = True):
+    tab1, tab2, tab3, tab4 = st.tabs(["Prologue", "Steps", "Requirements", "Download Visualization"])
+    with tab1:
+        st.write('Sentiment analysis uses natural language processing to identify patterns in large text datasets, revealing the writer’s opinions, emotions, and attitudes. It assesses subjectivity (objective vs. subjective), polarity (positive, negative, neutral), and emotions (e.g., anger, joy, sadness, surprise, jealousy).') 
+        st.divider()
+        st.write('💡 The idea came from this:')
+        st.write('Lamba, M., & Madhusudhan, M. (2021, July 31). Sentiment Analysis. Text Mining for Information Professionals, 191–211. https://doi.org/10.1007/978-3-030-85085-2_7')
+        
+    with tab2:
+        st.write("1. Put your file. Choose your prefered column to analyze")
+        st.write("2. Choose your preferred method and decide which words you want to remove")
+        st.write("3. Finally, you can visualize your data.")
+        
+    with tab3:
+        st.code("""
+        +----------------+------------------------+----------------------------------+
+        |     Source     |       File Type        |              Column              |
+        +----------------+------------------------+----------------------------------+
+        | Scopus         | Comma-separated values | Choose your preferred column     |
+        |                | (.csv)                 | that you have                    |
+        +----------------+------------------------|                                  |
+        | Web of Science | Tab delimited file     |                                  |
+        |                | (.txt)                 |                                  |
+        +----------------+------------------------|                                  |
+        | Lens.org       | Comma-separated values |                                  |
+        |                | (.csv)                 |                                  |
+        +----------------+------------------------|                                  |
+        | Other          | .csv                   |                                  |
+        +----------------+------------------------|                                  |
+        | Hathitrust     | .json                  |                                  |
+        +----------------+------------------------+----------------------------------+
+        """, language=None)
+        
+    with tab4:
+        st.subheader(':blue[Sentiment Analysis]', anchor=False)
+        st.write("Click the three dots at the top right then select the desired format")
+        st.markdown("![Downloading visualization](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/download_sentiment.png)")
+        st.divider()
+        st.subheader(':blue[CSV Results]', anchor=False)
+        st.text("Click Download button")
+        st.markdown("![Downloading results](https://raw.githubusercontent.com/faizhalas/library-tools/main/images/sentitable.png)")
+
+
 st.header("Sentiment Analysis", anchor=False)
 st.subheader('Put your file here...', anchor=False)
 

@@ -7,6 +7,7 @@ import pandas as pd
 from rouge_score import rouge_scorer
 from nltk.translate.bleu_score import sentence_bleu
 from transformers import pipeline, PegasusForConditionalGeneration, PegasusTokenizer, T5ForConditionalGeneration, T5Tokenizer
+from tools import sourceformat as sf
 nltk.download('punkt')
 
 #===config===
@@ -39,7 +40,39 @@ with st.popover("🔗 Menu"):
     st.page_link("pages/8 Shifterator.py", label="Shifterator", icon="8️⃣")
     st.page_link("pages/9 Summarization.py", label = "Summarization",icon ="9️⃣")
     st.page_link("pages/10 WordCloud.py", label = "WordCloud", icon = "🔟")
-    
+
+with st.expander("Before you start", expanded = True):
+    tab1, tab2, tab3, tab4 = st.tabs(["Prologue", "Steps", "Requirements", "Download Visualization"])
+    with tab1:
+            st.write("")
+        
+    with tab2:
+        st.text("1. Put your file. Choose your preferred column to analyze (if CSV).")
+        st.text("2. Choose your preferred method to count the words and decide how many top words you want to include or remove.")
+        st.text("3. Finally, you can visualize your data.")
+        st.error("This app includes lemmatization and stopwords. Currently, we only offer English words.", icon="💬")
+        
+        with tab3:
+            st.code("""
+            +----------------+------------------------+
+            |     Source     |       File Type        |           
+            +----------------+------------------------+
+            | Scopus         | Comma-separated values |      
+            |                | (.csv)                 |     
+            +----------------+------------------------|   
+            | Lens.org       | Comma-separated values |                                  
+            |                | (.csv)                 |                                  
+            +----------------+------------------------|                                 
+            | Other          | .csv/ .txt(full text)  |                                  
+            +----------------+------------------------|                                  
+            | Hathitrust     | .json                  |                                  
+            +----------------+------------------------+
+            """, language=None)
+        
+    with tab4:
+        st.subheader(':blue[Summarization]', anchor=False)
+        st.write("Click \"Download Results\" button")
+
 st.header("Summarization", anchor=False)
 st.subheader('Put your file here...', anchor=False)
 
@@ -68,10 +101,19 @@ def read_txt(intext):
     return (intext.read()).decode()
 
 #===csv reading===
-def read_csv(uploaded_file):
-    fulltexts = pd.read_csv(uploaded_file)
-    fulltexts.rename(columns={fulltexts.columns[0]: "texts"}, inplace = True)
-    return fulltexts
+def read_csv(file):
+    papers = pd.read_csv(uploaded_file)
+    if "About the data" in papers.columns[0]:
+        papers = sf.dim(papers)
+        col_dict = {'MeSH terms': 'Keywords',
+        'PubYear': 'Year',
+        'Times cited': 'Cited by',
+        'Publication Type': 'Document Type'
+        }
+        papers.rename(columns=col_dict, inplace=True)
+    
+    return papers
+
     
 
 #===Read data===
@@ -86,6 +128,7 @@ if uploaded_file is not None:
             fulltext = read_txt(uploaded_file)
         elif extype.endswith(".csv"):
             texts = read_csv(uploaded_file)
+            colCho = st.selectbox("Column", (texts.columns.values))
 
         #Menu
         
@@ -236,36 +279,36 @@ if uploaded_file is not None:
                                     label = "Download Results",
                                     data=text_file,
                                     file_name="Summary.txt",
-                                    mime="text\csv",
                                     on_click="ignore",)
 
                     elif(extype.endswith(".csv")):
+                        
                         if method == "Extractive":
                             if(ex_method == "PyTextRank"):
-                                summaries = texts['texts'].apply(SpacyRank)
+                                summaries = texts[colCho].apply(SpacyRank)
                                 fullnsums = summaries.to_frame()
-                                fullnsums['full'] = texts['texts']
+                                fullnsums['full'] = texts[colCho]
                                 fullnsums['combined'] = fullnsums.values.tolist()
 
 
                             elif(ex_method == "t5"):
-                                summaries = texts['texts'].apply(t5summ)
+                                summaries = texts[colCho].apply(t5summ)
                                 fullnsums = summaries.to_frame()
-                                fullnsums['full'] = texts['texts']
+                                fullnsums['full'] = texts[colCho]
                                 fullnsums['combined'] = fullnsums.values.tolist()
                                 
 
                         elif method == "Abstractive":
                             if ab_method == "Pegasus x-sum":
-                                summaries = texts['texts'].apply(xsum)
+                                summaries = texts[colCho].apply(xsum)
                                 fullnsums = summaries.to_frame()
-                                fullnsums['full'] = texts['texts']
+                                fullnsums['full'] = texts[colCho]
                                 fullnsums['combined'] = fullnsums.values.tolist()
 
                             elif ab_method == "FalconsAI t5":
-                                summaries = texts['texts'].apply(falcsum)
+                                summaries = texts[colCho].apply(falcsum)
                                 fullnsums = summaries.to_frame()
-                                fullnsums['full'] = texts['texts']
+                                fullnsums['full'] = texts[colCho]
                                 fullnsums['combined'] = fullnsums.values.tolist()
 
                         with c1:
@@ -276,7 +319,6 @@ if uploaded_file is not None:
                                 label = "Download Results",
                                 data = result,
                                 file_name = "Summaries.csv",
-                                mime="text\csv",
                                 on_click = "ignore"
                             )
 
@@ -287,7 +329,7 @@ if uploaded_file is not None:
                             summariesscores = fullnsums.join(scores)
 
                             summariesscores.drop("combined", axis = 1, inplace = True)
-                            summariesscores.rename(columns = {"texts":"summarized"}, inplace = True)
+                            summariesscores.rename(columns = {colCho:"summarized"}, inplace = True)
 
                             result2 = summariesscores.to_csv()
 

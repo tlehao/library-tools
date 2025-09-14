@@ -50,6 +50,55 @@ with st.popover("🔗 Menu"):
     st.page_link("pages/9 Summarization.py", label = "Summarization",icon ="9️⃣")
     st.page_link("pages/10 WordCloud.py", label = "WordCloud", icon = "🔟")
 
+with st.expander("Before you start", expanded = True):
+            tab1, tab2, tab3, tab4 = st.tabs(["Prologue", "Steps", "Requirements", "Download Visualization"])
+            with tab1:
+                st.write("Burst detection identifies periods when a specific event occurs with unusually high frequency, referred to as 'bursty'. This method can be applied to identify bursts in a continuous stream of events or in discrete groups of events (such as poster title submissions to an annual conference).") 
+                st.divider()
+                st.write('💡 The idea came from this:') 
+                st.write('Kleinberg, J. (2002). Bursty and hierarchical structure in streams. Knowledge Discovery and Data Mining. https://doi.org/10.1145/775047.775061')
+                    
+            with tab2:
+                st.text("1. Put your file. Choose your preferred column to analyze.")
+                st.text("2. Choose your preferred method to compare.")
+                st.text("3. Finally, you can visualize your data.")
+                st.error("This app includes lemmatization and stopwords. Currently, we only offer English words.", icon="💬")
+
+            with tab3:
+                st.code("""
+                +----------------+------------------------+----------------------------------+
+                |     Source     |       File Type        |              Column              |
+                +----------------+------------------------+----------------------------------+
+                | Scopus         | Comma-separated values | Choose your preferred column     |
+                |                | (.csv)                 | that you have to analyze and     |
+                +----------------+------------------------| and need a column called "Year"  |
+                | Web of Science | Tab delimited file     |                                  |
+                |                | (.txt)                 |                                  |
+                +----------------+------------------------|                                  |
+                | Lens.org       | Comma-separated values |                                  |
+                |                | (.csv)                 |                                  |
+                +----------------+------------------------|                                  |
+                | Other          | .csv                   |                                  |
+                +----------------+------------------------|                                  |
+                | Hathitrust     | .json                  |                                  |
+                +----------------+------------------------+----------------------------------+
+                """, language=None)
+                
+            with tab4:
+                st.subheader(':blue[Burst Detection]', anchor=False)
+                st.button('📊 Download high resolution image')
+                st.text("Click download button.") 
+
+                st.divider()
+                st.subheader(':blue[Top words]', anchor=False)
+                st.button('👉 Press to download list of top words')
+                st.text("Click download button.")  
+
+                st.divider()
+                st.subheader(':blue[Burst]', anchor=False)
+                st.button('👉 Press to download the list of detected bursts')
+                st.text("Click download button.") 
+
 st.header("Burst Detection", anchor=False)
 st.subheader('Put your file here...', anchor=False)
 

@@ -43,7 +43,46 @@ with st.popover("🔗 Menu"):
     st.page_link("pages/8 Shifterator.py", label="Shifterator", icon="8️⃣")
     st.page_link("pages/9 Summarization.py", label = "Summarization",icon ="9️⃣")
     st.page_link("pages/10 WordCloud.py", label = "WordCloud", icon = "🔟")
-    
+
+with st.expander("Before you start", expanded = True):
+            
+        tab1, tab2, tab3, tab4 = st.tabs(["Prologue", "Steps", "Requirements", "Download Visualization"])
+        with tab1:
+            st.write("Scattertext is an open-source tool designed to visualize linguistic variations between document categories in a language-independent way. It presents a scatterplot, with each axis representing the rank-frequency of a term's occurrence within a category of documents.") 
+            st.divider()
+            st.write('💡 The idea came from this:') 
+            st.write('Kessler, J. S. (2017). Scattertext: a Browser-Based Tool for Visualizing how Corpora Differ. https://doi.org/10.48550/arXiv.1703.00565')
+                
+        with tab2:
+            st.text("1. Put your file. Choose your preferred column to analyze.")
+            st.text("2. Choose your preferred method to compare and decide words you want to remove.")
+            st.text("3. Finally, you can visualize your data.")
+            st.error("This app includes lemmatization and stopwords. Currently, we only offer English words.", icon="💬")
+            
+        with tab3:
+            st.code("""
+            +----------------+------------------------+----------------------------------+
+            |     Source     |       File Type        |              Column              |
+            +----------------+------------------------+----------------------------------+
+            | Scopus         | Comma-separated values | Choose your preferred column     |
+            |                | (.csv)                 | that you have                    |
+            +----------------+------------------------|                                  |
+            | Web of Science | Tab delimited file     |                                  |
+            |                | (.txt)                 |                                  |
+            +----------------+------------------------|                                  |
+            | Lens.org       | Comma-separated values |                                  |
+            |                | (.csv)                 |                                  |
+            +----------------+------------------------|                                  |
+            | Other          | .csv                   |                                  |
+            +----------------+------------------------|                                  |
+            | Hathitrust     | .json                  |                                  |
+            +----------------+------------------------+----------------------------------+
+            """, language=None)
+            
+        with tab4:
+            st.subheader(':blue[Scattertext]', anchor=False)
+            st.write("Click the :blue[Download SVG] on the right side.")
+
 st.header("Scattertext", anchor=False)
 st.subheader('Put your file here...', anchor=False)
 
